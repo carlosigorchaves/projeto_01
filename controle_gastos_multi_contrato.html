@@ -277,6 +277,10 @@
             <label style="font-size:12px; color:var(--text-2); display:block; margin-bottom:4px;">Categoria</label>
             <select id="newCat" style="width:200px;"></select>
           </div>
+          <div>
+            <label style="font-size:12px; color:var(--text-2); display:block; margin-bottom:4px;">Subcategoria</label>
+            <select id="newItemCode" style="width:220px;"></select>
+          </div>
           <button class="primary" id="btnAddSingle">Adicionar</button>
         </div>
         <p class="hint" id="newError" style="color:var(--danger); display:none;"></p>
@@ -308,7 +312,7 @@
         </div>
         <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>Data</th><th>Contrato</th><th>Descrição</th><th class="num">Valor</th><th>Direção</th><th style="width:210px;">Categoria</th><th></th></tr></thead>
+          <thead><tr><th>Data</th><th>Contrato</th><th>Descrição</th><th class="num">Valor</th><th>Direção</th><th style="width:200px;">Categoria</th><th style="width:220px;">Subcategoria</th><th></th></tr></thead>
           <tbody id="lancTableBody"></tbody>
         </table>
         </div>
@@ -431,14 +435,14 @@
 
     <p class="hint" style="margin-top:-6px;">Detalhe cada categoria em itens (como Água, Medicamentos, Locação de veículos etc.). O limite da categoria vira a soma automática dos itens. Se preferir, deixe uma categoria sem itens e informe só o limite total dela.</p>
 
-    <div id="editCatsContainer"></div>
-
-    <div class="row-flex" id="addCategoryRow" style="margin-top:6px;">
+    <div class="row-flex" id="addCategoryRow" style="margin-bottom:16px;">
       <input type="text" id="newCatCode" placeholder="Código (ex: 1)" style="width:110px;">
       <input type="text" id="newCatName" placeholder="Nome da categoria" style="flex:1; min-width:200px;">
-      <button id="btnAddCategory">Adicionar categoria</button>
+      <button class="primary" id="btnAddCategory">Adicionar categoria</button>
     </div>
-    <p class="hint" id="noCatHint" style="display:none;">Este contrato ainda não tem nenhuma categoria do Anexo V. Cadastre a primeira acima.</p>
+    <p class="hint" id="noCatHint" style="display:none; margin-top:-10px; margin-bottom:16px;">Este contrato ainda não tem nenhuma categoria do Anexo V. Cadastre a primeira acima.</p>
+
+    <div id="editCatsContainer"></div>
 
     <div class="row-flex" style="margin-top:14px;">
       <button id="btnToggleActive">Marcar como inativo</button>
@@ -506,12 +510,9 @@ const LABEL_MAP = {
 const TRANSFER_KEYWORDS = ['POUPANÇA','POUPANCA'];
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
-/* ===================== STORAGE ===================== */
-const KEY_CONTRACTS = 'orcamento_contratos_v2';
-const KEY_CATS = 'orcamento_categorias_v2';
-const KEY_ITEMS = 'orcamento_itens_v1';
-const KEY_DEP = 'orcamento_nomenclatura_v2';
-const KEY_TX = 'orcamento_lancamentos_v2';
+/* ===================== STORAGE (sem banco — tudo em memória) ===================== */
+// Modo de teste/demonstração: os dados vivem só enquanto a página está aberta.
+// Ao recarregar, tudo volta para os dados de exemplo (Instituto Bahia, Agosto/2026).
 
 let contracts = [];
 let categories = [];
@@ -521,33 +522,23 @@ let transactions = [];
 let selectedContractId = 'instituto-bahia';
 let editingContractId = null;
 let openCatBlocks = {};
+let editingCatName = null; // {contractId, code} quando um nome de categoria está sendo editado
 
 async function loadAll(){
-  try{ const r = await window.storage.get(KEY_CONTRACTS, true); contracts = r ? JSON.parse(r.value) : buildDefaultContracts(); }
-  catch(e){ contracts = buildDefaultContracts(); }
-
-  try{ const r = await window.storage.get(KEY_CATS, true); categories = r ? JSON.parse(r.value) : buildDefaultCategories(contracts); }
-  catch(e){ categories = buildDefaultCategories(contracts); }
-
-  try{ const r = await window.storage.get(KEY_ITEMS, true); items = r ? JSON.parse(r.value) : buildDefaultItems(); }
-  catch(e){ items = buildDefaultItems(); }
-
-  try{ const r = await window.storage.get(KEY_DEP, true); nomenclature = r ? JSON.parse(r.value) : []; }
-  catch(e){ nomenclature = []; }
-
-  try{ const r = await window.storage.get(KEY_TX, true); transactions = r ? JSON.parse(r.value) : buildDefaultTransactions(); }
-  catch(e){ transactions = buildDefaultTransactions(); }
-
-  if(!contracts.length) contracts = buildDefaultContracts();
-  if(!categories.length) categories = buildDefaultCategories(contracts);
-  if(!transactions.length) transactions = buildDefaultTransactions();
+  contracts = buildDefaultContracts();
+  categories = buildDefaultCategories(contracts);
+  items = buildDefaultItems();
+  nomenclature = [];
+  transactions = buildDefaultTransactions();
 }
 
-async function saveContracts(){ try{ await window.storage.set(KEY_CONTRACTS, JSON.stringify(contracts), true); }catch(e){console.error(e);} }
-async function saveCats(){ try{ await window.storage.set(KEY_CATS, JSON.stringify(categories), true); }catch(e){console.error(e);} }
-async function saveItems(){ try{ await window.storage.set(KEY_ITEMS, JSON.stringify(items), true); }catch(e){console.error(e);} }
-async function saveDep(){ try{ await window.storage.set(KEY_DEP, JSON.stringify(nomenclature), true); }catch(e){console.error(e);} }
-async function saveTx(){ try{ await window.storage.set(KEY_TX, JSON.stringify(transactions), true); }catch(e){console.error(e);} }
+// Nada a persistir sem banco — os arrays em memória já são a "gravação".
+async function saveContracts(){}
+async function saveCats(){}
+async function saveItems(){}
+async function saveDep(){}
+async function saveTx(){}
+
 
 function itemsFor(contractId, categoryCode){
   return items.filter(it => it.contractId === contractId && it.categoryCode === categoryCode);
@@ -596,6 +587,16 @@ function isTransfer(tx){
   return TRANSFER_KEYWORDS.some(kw => d.includes(kw));
 }
 
+function deriveItemCode(tx){
+  if(isTransfer(tx)) return null;
+  if(tx.direction !== 'SAIDA') return null;
+  if(!tx.code) return null;
+  const mapped = nomenclature.find(n => normalize(n.from) === normalize(tx.code));
+  const effectiveCode = mapped ? mapped.to : tx.code;
+  const match = items.find(it => it.contractId === tx.contractId && normalize(it.itemCode) === normalize(effectiveCode));
+  return match ? match.itemCode : null;
+}
+
 function monthOf(dateStr){
   const dt = new Date(dateStr + 'T00:00:00');
   return dt.getMonth() + 1;
@@ -618,6 +619,8 @@ function recategorizeAll(){
   transactions.forEach(tx => {
     if(tx.manualCat !== undefined && tx.manualCat !== null){ tx.cat = tx.manualCat; }
     else { tx.cat = classify(tx); }
+    if(tx.manualItemCode !== undefined && tx.manualItemCode !== null){ tx.itemCode = tx.manualItemCode; }
+    else { tx.itemCode = deriveItemCode(tx); }
   });
 }
 
@@ -625,17 +628,50 @@ function recategorizeAll(){
 const fmtCur = v => 'R$ ' + (v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 const fmtPct = v => (v*100).toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1}) + '%';
 const fmtDate = s => { const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; };
+
+/* ===================== VALIDAÇÃO DE CAMPOS (pop-up de aviso) ===================== */
+function isValidNumber(raw){
+  if(raw === null || raw === undefined) return false;
+  const s = String(raw).trim();
+  if(s === '') return false;
+  // aceita "1500", "1500.50", "1500,50" — não aceita letras misturadas
+  const normalized = s.replace(',', '.');
+  return /^-?\d+(\.\d+)?$/.test(normalized) && !isNaN(parseFloat(normalized));
+}
+function warnNotANumber(fieldLabel, raw){
+  alert(`O campo "${fieldLabel}" espera um número (ex: 1500 ou 1500,50).\nVocê digitou: "${raw}".\n\nCorrija o valor e tente de novo.`);
+}
+function isValidCodeText(raw){
+  // códigos de categoria/item: dígitos e ponto, ex "1", "3.09", "12.4"
+  return /^\d+(\.\d+)?$/.test(String(raw).trim());
+}
+function warnNotACode(fieldLabel, raw){
+  alert(`O campo "${fieldLabel}" espera um código numérico (ex: 1 ou 3.09), sem letras.\nVocê digitou: "${raw}".\n\nCorrija o valor e tente de novo.`);
+}
+
 function statusClass(pct){ if(pct < 0.7) return 'ok'; if(pct <= 1.0) return 'warn'; return 'danger'; }
 
 /* ===================== NAV ===================== */
+function goToPage(pageName){
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.nav-item[data-page="${pageName}"]`).classList.add('active');
+  document.getElementById('page-' + pageName).classList.add('active');
+}
+
 document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', () => {
-    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    item.classList.add('active');
-    document.getElementById('page-' + item.dataset.page).classList.add('active');
-  });
+  item.addEventListener('click', () => goToPage(item.dataset.page));
 });
+
+function goToLancamentosFiltered(contractId, month, catCode){
+  goToPage('lancamentos');
+  document.getElementById('filterContract').value = contractId;
+  populateFilterCat();
+  document.getElementById('filterMonth').value = (month === 'all') ? '' : String(month);
+  document.getElementById('filterCat').value = catCode !== null && catCode !== undefined ? String(catCode) : '';
+  document.getElementById('filterDirection').value = '';
+  renderLancamentos();
+}
 
 /* ===================== CONTRACT SELECTS (shared helper) ===================== */
 function populateContractSelect(sel, includeAll){
@@ -734,6 +770,8 @@ function renderDashboard(){
     rows.forEach(({c, spent, saldo, p}) => {
       const cls = statusClass(p);
       const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      tr.title = 'Ver lançamentos desta categoria';
       tr.innerHTML = `
         <td>${c.code}. ${c.name}</td>
         <td class="num">${fmtCur(c.limit)}</td>
@@ -743,6 +781,7 @@ function renderDashboard(){
           <span class="badge ${cls}">${fmtPct(p)}</span>
           <div class="barwrap"><div class="barfill ${cls}" style="width:${Math.min(p*100,100)}%"></div></div>
         </td>`;
+      tr.addEventListener('click', () => goToLancamentosFiltered(contractId, month, c.code));
       tbody.appendChild(tr);
     });
 
@@ -751,11 +790,14 @@ function renderDashboard(){
       const cls = statusClass(p);
       const pctRestante = c.limit ? Math.max(saldo/c.limit, 0) : 0;
       const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      tr.title = 'Ver lançamentos desta categoria';
       tr.innerHTML = `
         <td>${c.code}. ${c.name}</td>
         <td class="num" style="font-weight:600; color:${saldo<0?'var(--danger)':'inherit'}">${fmtCur(saldo)}</td>
         <td class="num">${fmtPct(pctRestante)}</td>
         <td><span class="badge ${cls}">${cls==='ok'?'Tranquilo':cls==='warn'?'Atenção':'Estourado'}</span></td>`;
+      tr.addEventListener('click', () => goToLancamentosFiltered(contractId, month, c.code));
       saldoBody.appendChild(tr);
     });
   }
@@ -848,7 +890,16 @@ function renderChart(cats, totals){
     ]},
     options: { responsive:true, maintainAspectRatio:false,
       scales:{ y:{beginAtZero:true, ticks:{callback:v=>'R$ '+(v/1000).toLocaleString('pt-BR')+'k'}, grid:{color:'#EEF0F3'}}, x:{grid:{display:false}} },
-      plugins:{legend:{display:false}} }
+      plugins:{legend:{display:false}},
+      onHover: (evt, elements) => { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+      onClick: (evt, elements) => {
+        if(!elements.length || !lastDashboardData) return;
+        const idx = elements[0].index;
+        const cat = cats[idx];
+        if(!cat) return;
+        goToLancamentosFiltered(lastDashboardData.contractId, lastDashboardData.month, cat.code);
+      },
+    }
   });
 }
 
@@ -857,6 +908,18 @@ function categoryOptionsHtml(contractId, selected){
   let html = '<option value="">Não classificado</option>';
   catsFor(contractId).forEach(c => {
     html += `<option value="${c.code}" ${selected==c.code?'selected':''}>${c.code}. ${c.name}</option>`;
+  });
+  return html;
+}
+
+function itemOptionsHtml(contractId, categoryCode, selected){
+  const its = (categoryCode || categoryCode === 0) ? itemsFor(contractId, categoryCode) : [];
+  if(its.length === 0){
+    return '<option value="">— (sem subcategorias)</option>';
+  }
+  let html = '<option value="">Nenhuma subcategoria</option>';
+  its.forEach(it => {
+    html += `<option value="${it.itemCode}" ${selected===it.itemCode?'selected':''}>${it.itemCode} — ${it.name}</option>`;
   });
   return html;
 }
@@ -882,10 +945,17 @@ function renderLancamentos(){
 
     const ct = contracts.find(c=>c.id===tx.contractId);
     const transfer = isTransfer(tx);
-    let catCell;
-    if(tx.direction === 'ENTRADA'){ catCell = '<span class="badge gray">Entrada</span>'; }
-    else if(transfer){ catCell = '<span class="tag-transfer">Transferência interna</span>'; }
-    else { catCell = `<select data-idx="${realIdx}" class="catSelect">${categoryOptionsHtml(tx.contractId, tx.cat)}</select>`; }
+    let catCell, itemCell;
+    if(tx.direction === 'ENTRADA'){
+      catCell = '<span class="badge gray">Entrada</span>';
+      itemCell = '<span class="tag-transfer">—</span>';
+    } else if(transfer){
+      catCell = '<span class="tag-transfer">Transferência interna</span>';
+      itemCell = '<span class="tag-transfer">—</span>';
+    } else {
+      catCell = `<select data-idx="${realIdx}" class="catSelect">${categoryOptionsHtml(tx.contractId, tx.cat)}</select>`;
+      itemCell = `<select data-idx="${realIdx}" class="itemSelect">${itemOptionsHtml(tx.contractId, tx.cat, tx.itemCode)}</select>`;
+    }
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -895,13 +965,14 @@ function renderLancamentos(){
       <td class="num" style="color:${tx.direction==='ENTRADA'?'var(--ok)':'inherit'}">${tx.direction==='ENTRADA'?'+':''}${fmtCur(tx.value)}</td>
       <td><span class="badge ${tx.direction==='ENTRADA'?'blue':'gray'}">${tx.direction}</span></td>
       <td>${catCell}</td>
+      <td>${itemCell}</td>
       <td><button class="small ghost-danger" data-del="${realIdx}">Remover</button></td>
     `;
     tbody.appendChild(tr);
   });
 
   if(shown === 0){
-    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state">Nenhum lançamento encontrado com esse filtro.</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">Nenhum lançamento encontrado com esse filtro.</div></td></tr>';
   }
 
   tbody.querySelectorAll('.catSelect').forEach(sel => {
@@ -910,8 +981,22 @@ function renderLancamentos(){
       const val = e.target.value;
       transactions[idx].manualCat = val === '' ? null : parseInt(val, 10);
       transactions[idx].cat = transactions[idx].manualCat;
+      // categoria mudou: a subcategoria antiga pode não pertencer mais a ela
+      transactions[idx].manualItemCode = null;
+      transactions[idx].itemCode = deriveItemCode(transactions[idx]);
       await saveTx();
+      renderLancamentos();
       renderDashboard();
+    });
+  });
+
+  tbody.querySelectorAll('.itemSelect').forEach(sel => {
+    sel.addEventListener('change', async e => {
+      const idx = parseInt(e.target.dataset.idx, 10);
+      const val = e.target.value;
+      transactions[idx].manualItemCode = val === '' ? null : val;
+      transactions[idx].itemCode = transactions[idx].manualItemCode;
+      await saveTx();
     });
   });
 
@@ -943,7 +1028,21 @@ function populateNewCatSelect(){
   let html = '<option value="">Auto (deixar o sistema classificar)</option>';
   catsFor(contractId).forEach(c => { html += `<option value="${c.code}">${c.code}. ${c.name}</option>`; });
   sel.innerHTML = html;
+  populateNewItemSelect();
 }
+
+function populateNewItemSelect(){
+  const sel = document.getElementById('newItemCode');
+  const contractId = document.getElementById('lancContract').value;
+  const catCode = document.getElementById('newCat').value;
+  if(!catCode){
+    sel.innerHTML = '<option value="">Escolha a categoria primeiro</option>';
+    return;
+  }
+  sel.innerHTML = itemOptionsHtml(contractId, parseInt(catCode, 10), null);
+}
+
+document.getElementById('newCat').addEventListener('change', populateNewItemSelect);
 
 function parseDateFlexible(s){
   s = s.trim();
@@ -964,9 +1063,11 @@ document.getElementById('btnAddSingle').addEventListener('click', async () => {
   const desc = document.getElementById('newDesc').value.trim();
   const direction = document.getElementById('newDirection').value;
   const catSel = document.getElementById('newCat').value;
+  const itemSel = document.getElementById('newItemCode').value;
 
   if(!contractId){ showNewError('Selecione um contrato.'); return; }
   if(!date){ showNewError('Informe a data do lançamento.'); return; }
+  if(valueRaw && !isValidNumber(valueRaw)){ warnNotANumber('Valor (R$)', valueRaw); return; }
   const value = parseFloat(valueRaw);
   if(!valueRaw || isNaN(value) || value <= 0){ showNewError('Informe um valor maior que zero.'); return; }
   if(!desc){ showNewError('Informe a descrição do lançamento.'); return; }
@@ -976,14 +1077,20 @@ document.getElementById('btnAddSingle').addEventListener('click', async () => {
     return;
   }
 
-  const tx = { date, value, desc, direction, label: null, code: null, contractId, manualCat: catSel ? parseInt(catSel, 10) : null };
+  const tx = {
+    date, value, desc, direction, label: null, code: null, contractId,
+    manualCat: catSel ? parseInt(catSel, 10) : null,
+    manualItemCode: itemSel ? itemSel : null,
+  };
   tx.cat = tx.manualCat !== null ? tx.manualCat : classify(tx);
+  tx.itemCode = tx.manualItemCode !== null ? tx.manualItemCode : deriveItemCode(tx);
   transactions.push(tx);
   await saveTx();
 
   document.getElementById('newValue').value = '';
   document.getElementById('newDesc').value = '';
   document.getElementById('newCat').value = '';
+  populateNewItemSelect();
 
   renderLancamentos();
   renderDashboard();
@@ -998,19 +1105,24 @@ document.getElementById('btnImport').addEventListener('click', async () => {
   const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
   let added = 0;
   let blocked = 0;
+  let invalidValue = 0;
+  let invalidDate = 0;
   lines.forEach(line => {
     const parts = line.split('\t');
     if(parts.length < 4) return;
     const date = parseDateFlexible(parts[0]);
-    const value = parseFloat(parts[1].replace(/\./g,'').replace(',', '.')) || parseFloat(parts[1]);
+    const valueRaw = parts[1];
+    const value = parseFloat(valueRaw.replace(/\./g,'').replace(',', '.')) || parseFloat(valueRaw);
     const desc = parts[2] || '';
     const direction = normalize(parts[3]).includes('ENTRADA') ? 'ENTRADA' : 'SAIDA';
     const label = parts[4] || null;
     const code = parts[5] || null;
-    if(!date || isNaN(value)) return;
+    if(!date){ invalidDate++; return; }
+    if(isNaN(value)){ invalidValue++; return; }
     if(isDateBeyondValidity(contractId, date)){ blocked++; return; }
-    const tx = {date, value, desc, direction, label, code, contractId, manualCat:null};
+    const tx = {date, value, desc, direction, label, code, contractId, manualCat:null, manualItemCode:null};
     tx.cat = classify(tx);
+    tx.itemCode = deriveItemCode(tx);
     transactions.push(tx);
     added++;
   });
@@ -1019,6 +1131,12 @@ document.getElementById('btnImport').addEventListener('click', async () => {
     document.getElementById('importArea').value = '';
     renderLancamentos();
     renderDashboard();
+  }
+  if(invalidValue > 0 || invalidDate > 0){
+    let msg = '';
+    if(invalidValue > 0) msg += `${invalidValue} linha(s) ignoradas porque a coluna de Valor não é um número válido.\n`;
+    if(invalidDate > 0) msg += `${invalidDate} linha(s) ignoradas porque a coluna de Data não é uma data válida (use dd/mm/aaaa).`;
+    alert(msg.trim());
   }
   if(blocked > 0){
     const ct = contracts.find(c=>c.id===contractId);
@@ -1054,7 +1172,7 @@ function renderContractList(){
         </div>
       </div>
       <div class="cmeta">${totalLimit>0 ? fmtCur(totalLimit)+'/mês' : 'sem limites definidos'} · ${txCount} lançamento(s)${ct.validUntil ? ' · válido até '+fmtDate(ct.validUntil) : ''}</div>`;
-    tile.addEventListener('click', () => { editingContractId = ct.id; renderContractList(); renderContractEdit(); });
+    tile.addEventListener('click', () => { editingContractId = ct.id; editingCatName = null; renderContractList(); renderContractEdit(); });
     list.appendChild(tile);
   });
   if(visible.length === 0){
@@ -1086,17 +1204,38 @@ function renderContractEdit(){
   catsList.forEach(c => {
     const its = itemsFor(editingContractId, c.code);
     const isOpen = !!openCatBlocks[c.code];
+    const isEditingName = editingCatName && editingCatName.contractId === editingContractId && editingCatName.code === c.code;
 
     const block = document.createElement('div');
     block.className = 'cat-block';
 
     const head = document.createElement('div');
     head.className = 'cat-block-head';
-    head.innerHTML = `
-      <span class="catname">${c.code}. ${c.name}</span>
-      <span class="cattotal">${fmtCur(c.limit)}/mês${its.length ? ' · '+its.length+' item(ns)' : ''}</span>
-    `;
-    head.addEventListener('click', () => { openCatBlocks[c.code] = !openCatBlocks[c.code]; renderContractEdit(); });
+    if(isEditingName){
+      head.innerHTML = `
+        <span class="row-flex" style="gap:6px; flex:1;">
+          <span style="font-weight:600; font-size:13px;">${c.code}.</span>
+          <input type="text" id="editCatNameInput" value="${c.name}" style="flex:1; min-width:160px;">
+        </span>
+        <span class="row-flex" style="gap:6px;">
+          <button class="small primary" data-savecatname="${c.code}">Salvar</button>
+          <button class="small" data-cancelcatname="${c.code}">Cancelar</button>
+        </span>
+      `;
+    } else {
+      head.innerHTML = `
+        <span class="catname">${c.code}. ${c.name}</span>
+        <span class="row-flex" style="gap:6px;">
+          <span class="cattotal">${fmtCur(c.limit)}/mês${its.length ? ' · '+its.length+' item(ns)' : ''}</span>
+          <button class="small" data-editcat="${c.code}" title="Renomear categoria">Editar</button>
+          <button class="small ghost-danger" data-delcat="${c.code}" title="Remover categoria">Remover</button>
+        </span>
+      `;
+    }
+    head.addEventListener('click', (e) => {
+      if(e.target.closest('button') || e.target.closest('input')) return;
+      openCatBlocks[c.code] = !openCatBlocks[c.code]; renderContractEdit();
+    });
     block.appendChild(head);
 
     const body = document.createElement('div');
@@ -1140,18 +1279,28 @@ function renderContractEdit(){
   container.querySelectorAll('.itemLimitInput').forEach(inp => {
     inp.addEventListener('change', async () => {
       const code = inp.dataset.code;
-      const v = parseFloat(inp.value);
       const it = items.find(i => i.contractId===editingContractId && i.itemCode===code);
-      if(it && !isNaN(v)){ it.limit = v; await saveItems(); recategorizeAll(); await saveTx(); renderContractList(); renderContractEdit(); renderDashboard(); }
+      if(!isValidNumber(inp.value)){
+        warnNotANumber('Limite mensal', inp.value);
+        if(it) inp.value = it.limit;
+        return;
+      }
+      const v = parseFloat(String(inp.value).replace(',', '.'));
+      if(it){ it.limit = v; await saveItems(); recategorizeAll(); await saveTx(); renderContractList(); renderContractEdit(); renderDashboard(); }
     });
   });
 
   container.querySelectorAll('.manualLimitInput').forEach(inp => {
     inp.addEventListener('change', async () => {
       const code = parseInt(inp.dataset.cat, 10);
-      const v = parseFloat(inp.value);
       const cat = categories.find(c => c.contractId===editingContractId && c.code===code);
-      if(cat && !isNaN(v)){ cat.limit = v; await saveCats(); renderContractList(); renderContractEdit(); renderDashboard(); }
+      if(!isValidNumber(inp.value)){
+        warnNotANumber('Limite mensal', inp.value);
+        if(cat) inp.value = cat.limit;
+        return;
+      }
+      const v = parseFloat(String(inp.value).replace(',', '.'));
+      if(cat){ cat.limit = v; await saveCats(); renderContractList(); renderContractEdit(); renderDashboard(); }
     });
   });
 
@@ -1165,6 +1314,78 @@ function renderContractEdit(){
     });
   });
 
+  container.querySelectorAll('[data-editcat]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const code = parseInt(btn.dataset.editcat, 10);
+      editingCatName = {contractId: editingContractId, code};
+      openCatBlocks[code] = true;
+      renderContractEdit();
+      const input = document.getElementById('editCatNameInput');
+      if(input){ input.focus(); input.select(); }
+    });
+  });
+
+  container.querySelectorAll('[data-savecatname]').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const code = parseInt(btn.dataset.savecatname, 10);
+      const cat = categories.find(c => c.contractId===editingContractId && c.code===code);
+      const input = document.getElementById('editCatNameInput');
+      if(!cat || !input) return;
+      const trimmed = input.value.trim();
+      if(!trimmed){ alert('O nome não pode ficar em branco.'); input.focus(); return; }
+      cat.name = trimmed;
+      editingCatName = null;
+      await saveCats();
+      renderContractList(); renderContractEdit(); renderDashboard(); renderLancamentos();
+    });
+  });
+
+  container.querySelectorAll('[data-cancelcatname]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      editingCatName = null;
+      renderContractEdit();
+    });
+  });
+
+  const nameInputEl = document.getElementById('editCatNameInput');
+  if(nameInputEl){
+    nameInputEl.addEventListener('keydown', e => {
+      if(e.key === 'Enter'){ document.querySelector('[data-savecatname]').click(); }
+      if(e.key === 'Escape'){ document.querySelector('[data-cancelcatname]').click(); }
+    });
+  }
+
+  container.querySelectorAll('[data-delcat]').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const code = parseInt(btn.dataset.delcat, 10);
+      const cat = categories.find(c => c.contractId===editingContractId && c.code===code);
+      if(!cat) return;
+      const itCount = itemsFor(editingContractId, code).length;
+      const msg = itCount > 0
+        ? `Remover a categoria "${cat.name}" e seus ${itCount} item(ns)? Lançamentos já classificados nela ficarão sem categoria.`
+        : `Remover a categoria "${cat.name}"? Lançamentos já classificados nela ficarão sem categoria.`;
+      if(!confirm(msg)) return;
+
+      categories = categories.filter(c => !(c.contractId===editingContractId && c.code===code));
+      items = items.filter(i => !(i.contractId===editingContractId && i.categoryCode===code));
+      transactions.forEach(tx => {
+        if(tx.contractId===editingContractId && tx.cat===code){
+          tx.manualCat = null; tx.cat = null;
+          tx.manualItemCode = null; tx.itemCode = null;
+        }
+      });
+      delete openCatBlocks[code];
+
+      await saveCats(); await saveItems();
+      recategorizeAll(); await saveTx();
+      renderContractList(); renderContractEdit(); renderDashboard(); renderLancamentos();
+    });
+  });
+
   container.querySelectorAll('[data-addcat]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const catCode = parseInt(btn.dataset.addcat, 10);
@@ -1174,8 +1395,12 @@ function renderContractEdit(){
       const limitInput = row.querySelector('.newItemLimit');
       const itemCode = codeInput.value.trim();
       const name = nameInput.value.trim();
-      const limit = parseFloat(limitInput.value);
-      if(!itemCode || !name || isNaN(limit)){ alert('Preencha código, descrição e limite do item.'); return; }
+
+      if(!itemCode || !name || !limitInput.value){ alert('Preencha código, descrição e limite do item.'); return; }
+      if(!isValidCodeText(itemCode)){ warnNotACode('Código', itemCode); return; }
+      if(!isValidNumber(limitInput.value)){ warnNotANumber('Limite (R$)', limitInput.value); return; }
+      const limit = parseFloat(String(limitInput.value).replace(',', '.'));
+
       if(items.some(i => i.contractId===editingContractId && i.itemCode===itemCode)){ alert('Já existe um item com esse código neste contrato.'); return; }
       items.push({contractId: editingContractId, categoryCode: catCode, itemCode, name, limit});
       await saveItems();
@@ -1190,12 +1415,14 @@ document.getElementById('showInactive').addEventListener('change', renderContrac
 
 document.getElementById('btnCloseContractModal').addEventListener('click', () => {
   editingContractId = null;
+  editingCatName = null;
   renderContractList();
   renderContractEdit();
 });
 document.getElementById('contractModalOverlay').addEventListener('click', e => {
   if(e.target.id === 'contractModalOverlay'){
     editingContractId = null;
+    editingCatName = null;
     renderContractList();
     renderContractEdit();
   }
@@ -1260,8 +1487,11 @@ document.getElementById('btnAddCategory').addEventListener('click', async () => 
   const nameInput = document.getElementById('newCatName');
   const codeRaw = codeInput.value.trim();
   const name = nameInput.value.trim();
+
+  if(!codeRaw){ alert('Informe o código da categoria.'); return; }
+  if(!/^\d+$/.test(codeRaw)){ warnNotACode('Código', codeRaw); return; }
   const code = parseInt(codeRaw, 10);
-  if(!codeRaw || isNaN(code) || code < 1 || code > 9){ alert('Use um código numérico de 1 a 9 para a categoria.'); return; }
+  if(code < 1 || code > 9){ alert('Use um código numérico de 1 a 9 para a categoria.'); return; }
   if(!name){ alert('Informe o nome da categoria.'); return; }
   if(categories.some(c => c.contractId === editingContractId && c.code === code)){ alert('Já existe uma categoria com esse código neste contrato.'); return; }
   categories.push({contractId: editingContractId, code, name, limit: 0});
@@ -1351,35 +1581,11 @@ function refreshAllContractSelects(){
   populateFilterCat();
 }
 
-/* ===================== LOGIN & USUÁRIOS ===================== */
-const KEY_ACCOUNTS = 'orcamento_contas_v1';
-const DEFAULT_ADMIN_USERNAME = 'admin';
-const DEFAULT_ADMIN_PASSWORD = 'admin123';
-
-let accounts = [];
+/* ===================== LOGIN & USUÁRIOS (sem banco — em memória) ===================== */
+let accounts = [
+  { id: 'admin', name: 'Administrador', username: 'admin', password: 'admin123', role: 'admin' },
+];
 let currentUser = null;
-
-async function hashPassword(pw){
-  const enc = new TextEncoder().encode(pw);
-  const buf = await crypto.subtle.digest('SHA-256', enc);
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
-
-async function loadAccounts(){
-  try{
-    const r = await window.storage.get(KEY_ACCOUNTS, true);
-    accounts = r ? JSON.parse(r.value) : [];
-  }catch(e){ accounts = []; }
-
-  if(!accounts || accounts.length === 0){
-    const hash = await hashPassword(DEFAULT_ADMIN_PASSWORD);
-    accounts = [{id:'admin', name:'Administrador', username:DEFAULT_ADMIN_USERNAME, passwordHash:hash, role:'admin'}];
-    await saveAccounts();
-  }
-}
-async function saveAccounts(){
-  try{ await window.storage.set(KEY_ACCOUNTS, JSON.stringify(accounts), true); }catch(e){ console.error(e); }
-}
 
 async function doLogin(){
   const username = document.getElementById('loginUsername').value.trim();
@@ -1388,8 +1594,7 @@ async function doLogin(){
 
   if(!username || !password){ err.textContent = 'Informe usuário e senha.'; err.style.display = 'block'; return; }
 
-  const hash = await hashPassword(password);
-  const account = accounts.find(a => a.username.toLowerCase() === username.toLowerCase() && a.passwordHash === hash);
+  const account = accounts.find(a => a.username.toLowerCase() === username.toLowerCase() && a.password === password);
   if(!account){ err.textContent = 'Usuário ou senha incorretos.'; err.style.display = 'block'; return; }
 
   err.style.display = 'none';
@@ -1397,7 +1602,7 @@ async function doLogin(){
 
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainShell').style.display = 'flex';
-  document.getElementById('currentUserLabel').textContent = `${account.name} (${account.role === 'admin' ? 'Administrador' : 'Usuário'})`;
+  document.getElementById('currentUserLabel').textContent = `${currentUser.name} (${currentUser.role === 'admin' ? 'Administrador' : 'Usuário'})`;
 
   await startApp();
 }
@@ -1414,6 +1619,10 @@ document.getElementById('btnLogout').addEventListener('click', () => {
   document.getElementById('loginPassword').value = '';
 });
 
+async function loadUsers(){
+  // já vive em memória (variável `accounts`), nada a buscar
+}
+
 function renderUserPage(){
   const isAdmin = currentUser && currentUser.role === 'admin';
   document.getElementById('addUserCard').style.display = isAdmin ? 'block' : 'none';
@@ -1423,7 +1632,7 @@ function renderUserPage(){
   tbody.innerHTML = '';
   accounts.forEach(acc => {
     const tr = document.createElement('tr');
-    const canDelete = isAdmin && !(acc.id === currentUser.id) ;
+    const canDelete = isAdmin && !(acc.id === currentUser.id);
     tr.innerHTML = `
       <td>${acc.name}</td>
       <td>${acc.username}</td>
@@ -1434,7 +1643,7 @@ function renderUserPage(){
   });
 
   tbody.querySelectorAll('[data-deluser]').forEach(btn => {
-    btn.addEventListener('click', async e => {
+    btn.addEventListener('click', e => {
       const id = e.target.dataset.deluser;
       const remainingAdmins = accounts.filter(a => a.role === 'admin' && a.id !== id).length;
       const target = accounts.find(a=>a.id===id);
@@ -1444,7 +1653,6 @@ function renderUserPage(){
       }
       if(!confirm(`Remover o usuário "${target.name}"?`)) return;
       accounts = accounts.filter(a => a.id !== id);
-      await saveAccounts();
       renderUserPage();
     });
   });
@@ -1453,7 +1661,7 @@ function renderUserPage(){
 function showUserError(msg){ const el = document.getElementById('userError'); el.textContent = msg; el.style.display = 'block'; }
 function clearUserError(){ document.getElementById('userError').style.display = 'none'; }
 
-document.getElementById('btnAddUser').addEventListener('click', async () => {
+document.getElementById('btnAddUser').addEventListener('click', () => {
   clearUserError();
   if(!currentUser || currentUser.role !== 'admin') return;
 
@@ -1467,10 +1675,8 @@ document.getElementById('btnAddUser').addEventListener('click', async () => {
   if(accounts.some(a => a.username.toLowerCase() === username.toLowerCase())){ showUserError('Já existe um usuário com esse login.'); return; }
   if(!password || password.length < 4){ showUserError('A senha precisa ter pelo menos 4 caracteres.'); return; }
 
-  const passwordHash = await hashPassword(password);
-  const id = slugify(username) + '-' + Date.now().toString(36);
-  accounts.push({id, name, username, passwordHash, role});
-  await saveAccounts();
+  const id = username.toLowerCase() + '-' + Date.now().toString(36);
+  accounts.push({id, name, username, password, role});
 
   document.getElementById('newUserName').value = '';
   document.getElementById('newUserUsername').value = '';
@@ -1483,6 +1689,7 @@ document.getElementById('btnAddUser').addEventListener('click', async () => {
 /* ===================== INIT ===================== */
 async function startApp(){
   await loadAll();
+  await loadUsers();
   recategorizeAll();
 
   populateMonthSelect(document.getElementById('monthSelect'), true);
@@ -1511,10 +1718,8 @@ async function startApp(){
   renderUserPage();
 }
 
-async function initLogin(){
-  await loadAccounts();
-}
-initLogin();
+// Sem sessão de servidor para checar — a tela de login sempre aparece primeiro
+// quando o modo é "sem banco".
 </script>
 </body>
 </html>
