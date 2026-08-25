@@ -373,6 +373,7 @@
 
         <div class="card">
           <div class="card-header"><p class="card-title">Usuários cadastrados</p></div>
+          <p class="hint" style="margin-top:-8px;">"Editar" troca só o nome exibido. O e-mail de login não pode ser alterado por aqui — só a própria pessoa consegue mudar o e-mail dela.</p>
           <table>
             <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil de acesso</th><th>Status</th><th style="width:100px;"></th></tr></thead>
             <tbody id="userTableBody"></tbody>
@@ -554,8 +555,8 @@ async function loadAccessProfiles(){
 
 /* ===================== STORAGE (Supabase) ===================== */
 // Preencha com os dados do seu projeto Supabase (Project Settings > API)
-const SUPABASE_URL = 'https://cfdhuqgzxdofsllcgxih.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_CaTNWAnV9rhxkr03R55Mjg_8dki_Hjt';
+const SUPABASE_URL = 'COLE_AQUI_A_URL_DO_SEU_PROJETO';
+const SUPABASE_ANON_KEY = 'COLE_AQUI_A_ANON_KEY_DO_SEU_PROJETO';
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -1862,6 +1863,9 @@ function renderUserPage(){
       ? '<span class="badge danger">Revogado</span>'
       : '<span class="badge ok">Ativo</span>';
     let actions = '';
+    if(canEdit){
+      actions += `<button class="small" data-editname="${acc.id}">Editar</button> `;
+    }
     if(canEdit && !isSelf){
       actions += acc.active === false
         ? `<button class="small" data-restore="${acc.id}">Restaurar</button> `
@@ -1902,6 +1906,30 @@ function renderUserPage(){
         renderUserPage();
       }catch(err){
         alert(err.message || 'Não foi possível atualizar o perfil deste usuário.');
+      }
+    });
+  });
+
+  tbody.querySelectorAll('[data-editname]').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      const id = e.target.dataset.editname;
+      const acc = accounts.find(a=>a.id===id);
+      if(!acc) return;
+      const newName = prompt('Novo nome:', acc.name);
+      if(newName === null) return;
+      const trimmed = newName.trim();
+      if(!trimmed){ alert('O nome não pode ficar em branco.'); return; }
+      try{
+        const { error } = await sb.from('profiles').update({ name: trimmed }).eq('id', id);
+        if(error) throw error;
+        if(id === currentUser.id){
+          currentUser.name = trimmed;
+          document.getElementById('currentUserLabel').textContent = `${currentUser.name} (${profileOf(currentUser) ? profileOf(currentUser).name : 'sem perfil'})`;
+        }
+        await loadUsers();
+        renderUserPage();
+      }catch(err){
+        alert(err.message || 'Não foi possível atualizar o nome deste usuário.');
       }
     });
   });
