@@ -1,0 +1,10 @@
+# Sistema operacional / editores
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# Backups locais que você não deve commitar por engano
+*.bak
+*.old
