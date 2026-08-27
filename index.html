@@ -351,12 +351,16 @@
         <div class="row-flex">
           <input type="text" id="newContractName" placeholder="Nome do contrato / unidade" style="flex:1; min-width:240px;">
           <div>
+            <label style="font-size:12px; color:var(--text-2); display:block; margin-bottom:4px;">Data de início</label>
+            <input type="date" id="newContractStartDate" style="width:160px;">
+          </div>
+          <div>
             <label style="font-size:12px; color:var(--text-2); display:block; margin-bottom:4px;">Válido até</label>
             <input type="date" id="newContractValidUntil" style="width:160px;">
           </div>
           <button class="primary" id="btnAddContract">Adicionar</button>
         </div>
-        <p class="hint">Deixe em branco se ainda não souber a data de encerramento. Depois dessa data, o contrato não aceita mais lançamentos novos.</p>
+        <p class="hint">Deixe em branco se ainda não souber a data de encerramento. Depois dessa data, o contrato não aceita mais lançamentos novos. Se a data de início cair no meio de um mês, o limite total daquele mês é calculado proporcionalmente aos dias restantes.</p>
       </div>
 
       <div class="card">
@@ -446,6 +450,12 @@
     </div>
 
     <div class="row-flex" style="margin-bottom:16px;">
+      <label style="font-size:12px; color:var(--text-2);">Data de início</label>
+      <input type="date" id="editStartDate" style="width:160px;">
+      <span class="hint" style="margin:0;">No mês em que o contrato começa, o limite total do mês é calculado proporcionalmente aos dias restantes.</span>
+    </div>
+
+    <div class="row-flex" style="margin-bottom:16px;">
       <label style="font-size:12px; color:var(--text-2);">Válido até</label>
       <input type="date" id="editValidUntil" style="width:160px;">
       <span class="hint" style="margin:0;">Depois dessa data, o contrato não aceita novos lançamentos. Deixe em branco para não ter data limite.</span>
@@ -495,8 +505,8 @@ function slugify(s){
 }
 
 function buildDefaultContracts(){
-  const list = [{id:'instituto-bahia', name:'Instituto Bahia', active:true, validUntil:null}];
-  OTHER_UNITS.forEach(name => list.push({id: slugify(name), name, active:true, validUntil:null}));
+  const list = [{id:'instituto-bahia', name:'Instituto Bahia', active:true, startDate:null, validUntil:null}];
+  OTHER_UNITS.forEach(name => list.push({id: slugify(name), name, active:true, startDate:null, validUntil:null}));
   return list;
 }
 
@@ -567,8 +577,8 @@ async function loadAccessProfiles(){
 
 /* ===================== STORAGE (Supabase) ===================== */
 // Preencha com os dados do seu projeto Supabase (Project Settings > API)
-const SUPABASE_URL = 'https://cfdhuqgzxdofsllcgxih.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_CaTNWAnV9rhxkr03R55Mjg_8dki_Hjt';
+const SUPABASE_URL = 'COLE_AQUI_A_URL_DO_SEU_PROJETO';
+const SUPABASE_ANON_KEY = 'COLE_AQUI_A_ANON_KEY_DO_SEU_PROJETO';
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -587,8 +597,8 @@ async function sbReplaceAll(table, rows, idColumn){
   }
 }
 
-function mapContractOut(c){ return {id:c.id, name:c.name, active:c.active, valid_until: c.validUntil || null}; }
-function mapContractIn(c){ return {id:c.id, name:c.name, active:c.active, validUntil: c.valid_until}; }
+function mapContractOut(c){ return {id:c.id, name:c.name, active:c.active, start_date: c.startDate || null, valid_until: c.validUntil || null}; }
+function mapContractIn(c){ return {id:c.id, name:c.name, active:c.active, startDate: c.start_date, validUntil: c.valid_until}; }
 function mapCategoryOut(c){ return {contract_id:c.contractId, code:c.code, name:c.name, manual_limit:c.limit||0}; }
 function mapCategoryIn(c){ return {contractId:c.contract_id, code:c.code, name:c.name, limit:parseFloat(c.manual_limit)}; }
 function mapItemOut(i){ return {contract_id:i.contractId, category_code:i.categoryCode, item_code:i.itemCode, name:i.name, limit_value:i.limit||0}; }
@@ -714,6 +724,19 @@ function deriveItemCode(tx){
 function monthOf(dateStr){
   const dt = new Date(dateStr + 'T00:00:00');
   return dt.getMonth() + 1;
+}
+
+// Se o contrato começa no meio do mês selecionado, retorna a fração de dias
+// restantes daquele mês (dias restantes / dias totais do mês). Fora do mês
+// de início, ou sem data de início cadastrada, retorna null (sem proporção).
+function startMonthProrationFactor(ct, month){
+  if(!ct || !ct.startDate) return null;
+  const start = new Date(ct.startDate + 'T00:00:00');
+  const startMonth = start.getMonth() + 1;
+  if(startMonth !== month) return null;
+  const daysInMonth = new Date(start.getFullYear(), startMonth, 0).getDate();
+  const remainingDays = daysInMonth - start.getDate() + 1;
+  return Math.max(0, Math.min(1, remainingDays / daysInMonth));
 }
 
 function isContractExpired(contractId){
@@ -888,7 +911,12 @@ function renderDashboard(){
   const totals = spentByCategory(contractId, month);
   const limitMultiplier = isAllPeriod ? 12 : 1;
   const catsWithLimit = cats.map(c => ({...c, limit: c.limit * limitMultiplier}));
-  const totalLimit = catsWithLimit.reduce((s,c)=>s+c.limit,0);
+  let totalLimit = catsWithLimit.reduce((s,c)=>s+c.limit,0);
+  const ct = contracts.find(c=>c.id===contractId);
+  const prorationFactor = isAllPeriod ? null : startMonthProrationFactor(ct, month);
+  if(prorationFactor !== null){
+    totalLimit = totalLimit * prorationFactor;
+  }
   const totalSpent = Object.values(totals).reduce((s,v)=>s+v,0);
   const pct = totalLimit ? totalSpent/totalLimit : 0;
 
@@ -896,8 +924,11 @@ function renderDashboard(){
   document.getElementById('dashContractMeta').textContent = `${txCount} lançamento(s) neste contrato`;
 
   const kpiRow = document.getElementById('kpiRow');
+  const prorationNote = prorationFactor !== null
+    ? `<div class="hint" style="margin:4px 0 0;">Proporcional · contrato iniciou em ${fmtDate(ct.startDate)} (${fmtPct(prorationFactor)} do mês)</div>`
+    : '';
   kpiRow.innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">${isAllPeriod?'Limite anual total':'Limite mensal total'}</div><div class="kpi-value">${fmtCur(totalLimit)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">${isAllPeriod?'Limite anual total':'Limite mensal total'}</div><div class="kpi-value">${fmtCur(totalLimit)}</div>${prorationNote}</div>
     <div class="kpi-card"><div class="kpi-label">${isAllPeriod?'Gasto no período':'Gasto no mês'}</div><div class="kpi-value">${fmtCur(totalSpent)}</div></div>
     <div class="kpi-card"><div class="kpi-label">Saldo disponível</div><div class="kpi-value ${totalLimit-totalSpent<0?'danger':'ok'}">${fmtCur(totalLimit-totalSpent)}</div></div>
     <div class="kpi-card"><div class="kpi-label">% utilizado</div><div class="kpi-value ${pct>1?'danger':''}">${fmtPct(pct)}</div></div>
@@ -1358,6 +1389,7 @@ function renderContractEdit(){
   statusBadge.className = 'badge ' + (isActive ? 'ok' : 'gray');
   document.getElementById('btnToggleActive').textContent = isActive ? 'Marcar como inativo' : 'Marcar como ativo';
 
+  document.getElementById('editStartDate').value = ct.startDate || '';
   document.getElementById('editValidUntil').value = ct.validUntil || '';
   document.getElementById('editingContractExpired').style.display = isContractExpired(editingContractId) ? 'inline-block' : 'none';
 
@@ -1594,6 +1626,16 @@ document.getElementById('contractModalOverlay').addEventListener('click', e => {
   }
 });
 
+document.getElementById('editStartDate').addEventListener('change', async e => {
+  const ct = contracts.find(c=>c.id===editingContractId);
+  if(!ct) return;
+  ct.startDate = e.target.value || null;
+  await saveContracts();
+  renderContractList();
+  renderContractEdit();
+  renderDashboard();
+});
+
 document.getElementById('editValidUntil').addEventListener('change', async e => {
   const ct = contracts.find(c=>c.id===editingContractId);
   if(!ct) return;
@@ -1631,15 +1673,17 @@ document.getElementById('btnDeleteContract').addEventListener('click', async () 
 
 document.getElementById('btnAddContract').addEventListener('click', async () => {
   const nameInput = document.getElementById('newContractName');
+  const startDateInput = document.getElementById('newContractStartDate');
   const validUntilInput = document.getElementById('newContractValidUntil');
   const name = nameInput.value.trim();
   if(!name) return;
   let id = slugify(name);
   let suffix = 1;
   while(contracts.some(c=>c.id===id)){ id = slugify(name) + '-' + (++suffix); }
-  contracts.push({id, name, active:true, validUntil: validUntilInput.value || null});
+  contracts.push({id, name, active:true, startDate: startDateInput.value || null, validUntil: validUntilInput.value || null});
   await saveContracts();
   nameInput.value = '';
+  startDateInput.value = '';
   validUntilInput.value = '';
   editingContractId = id;
   refreshAllContractSelects();
