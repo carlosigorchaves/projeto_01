@@ -627,8 +627,8 @@ async function loadAccessProfiles(){
 
 /* ===================== STORAGE (Supabase) ===================== */
 // Preencha com os dados do seu projeto Supabase (Project Settings > API)
-const SUPABASE_URL = 'https://cfdhuqgzxdofsllcgxih.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_CaTNWAnV9rhxkr03R55Mjg_8dki_Hjt';
+const SUPABASE_URL = 'COLE_AQUI_A_URL_DO_SEU_PROJETO';
+const SUPABASE_ANON_KEY = 'COLE_AQUI_A_ANON_KEY_DO_SEU_PROJETO';
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -858,6 +858,12 @@ function goToPage(pageName){
   if(navItem && navItem.style.display === 'none') return; // sem acesso a esse módulo
   if(navItem) navItem.classList.add('active');
   document.getElementById('page-' + pageName).classList.add('active');
+
+  // Gráficos criados enquanto a aba estava escondida (display:none) nascem com
+  // tamanho zero e ficam em branco. Ao entrar na aba, redesenha o painel dela
+  // pra garantir que o gráfico apareça corretamente.
+  if(pageName === 'dashboard') renderDashboard();
+  if(pageName === 'dashboard-competencia') renderDashboardCompetencia();
 }
 
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -1982,11 +1988,9 @@ function renderDep(){
       recategorizeAll();
       await saveTx();
       renderDashboard();
-  populateContractSelect(document.getElementById('dashContractComp'), false);
       renderLancamentos();
     });
   });
-  document.getElementById('dashContractComp').value = selectedContractId;
 }
 
 document.getElementById('btnAddDep').addEventListener('click', async () => {
@@ -2035,9 +2039,11 @@ function flash(id, text){
 /* ===================== CROSS-PAGE REFRESH ===================== */
 function refreshAllContractSelects(){
   populateContractSelect(document.getElementById('dashContract'), false);
+  populateContractSelect(document.getElementById('dashContractComp'), false);
   populateContractSelect(document.getElementById('lancContract'), false);
   populateContractSelect(document.getElementById('filterContract'), true);
   document.getElementById('dashContract').value = selectedContractId;
+  document.getElementById('dashContractComp').value = selectedContractId;
   document.getElementById('lancContract').value = selectedContractId;
   populateNewCatSelect();
   populateFilterCat();
@@ -2339,10 +2345,6 @@ function renderProfilesPage(){
         alert(err.message || 'Não foi possível salvar essa permissão.');
         renderProfilesPage();
       }
-  populateMonthSelect(document.getElementById('monthSelectComp'), true);
-  document.getElementById('monthSelectComp').value = 8;
-  document.getElementById('monthSelectComp').addEventListener('change', renderDashboardCompetencia);
-
     });
   });
 
@@ -2352,7 +2354,6 @@ function renderProfilesPage(){
       const p = accessProfiles.find(x=>x.id===id);
       if(!confirm(`Remover o perfil "${p.name}"?`)) return;
       try{
-  document.getElementById('dashContractComp').addEventListener('change', e => { selectedContractId = e.target.value; renderDashboardCompetencia(); });
         const { error } = await sb.from('access_profiles').delete().eq('id', id);
         if(error) throw error;
         await loadAccessProfiles();
@@ -2395,6 +2396,10 @@ async function startApp(){
   document.getElementById('monthSelect').value = 8;
   document.getElementById('monthSelect').addEventListener('change', renderDashboard);
 
+  populateMonthSelect(document.getElementById('monthSelectComp'), true);
+  document.getElementById('monthSelectComp').value = 8;
+  document.getElementById('monthSelectComp').addEventListener('change', renderDashboardCompetencia);
+
   populateMonthSelect(document.getElementById('filterMonth'), false);
   document.getElementById('filterMonth').insertAdjacentHTML('afterbegin', '<option value="">Todos os meses</option>');
   document.getElementById('filterMonth').value = '8';
@@ -2404,6 +2409,7 @@ async function startApp(){
   document.getElementById('filterContract').addEventListener('change', () => { populateFilterCat(); renderLancamentos(); });
 
   document.getElementById('dashContract').addEventListener('change', e => { selectedContractId = e.target.value; renderDashboard(); });
+  document.getElementById('dashContractComp').addEventListener('change', e => { selectedContractId = e.target.value; renderDashboardCompetencia(); });
   document.getElementById('lancContract').addEventListener('change', () => { populateNewCatSelect(); });
 
   refreshAllContractSelects();
