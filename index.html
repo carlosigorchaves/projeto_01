@@ -188,7 +188,8 @@
         <p>Se Liga · Anexo V</p>
       </div>
     </div>
-    <div class="nav-item active" data-page="dashboard"><span class="nav-dot"></span> Painel</div>
+    <div class="nav-item active" data-page="dashboard"><span class="nav-dot"></span> Painel (data de pagamento)</div>
+    <div class="nav-item" data-page="dashboard-competencia"><span class="nav-dot"></span> Painel (competência)</div>
     <div class="nav-item" data-page="lancamentos"><span class="nav-dot"></span> Lançamentos</div>
     <div class="nav-item" data-page="contratos"><span class="nav-dot"></span> Contratos</div>
     <div class="nav-item" data-page="config"><span class="nav-dot"></span> Configurações</div>
@@ -212,12 +213,12 @@
       </div>
     </div>
 
-    <!-- DASHBOARD -->
+    <!-- DASHBOARD (POR DATA DE PAGAMENTO) -->
     <div class="page active" id="page-dashboard">
       <div class="row-flex" style="justify-content:space-between; margin-bottom:4px;">
         <div>
-          <h2 class="page-title">Painel de orçamento</h2>
-          <p class="page-sub">Gasto acumulado em cada categoria do Anexo V do contrato selecionado.</p>
+          <h2 class="page-title">Painel de orçamento — por data de pagamento</h2>
+          <p class="page-sub">Gasto acumulado em cada categoria do Anexo V, agrupado pela data real em que o pagamento saiu.</p>
         </div>
         <div class="row-flex">
           <button class="primary" id="btnDownloadPdf">Baixar PDF</button>
@@ -259,6 +260,50 @@
       </div>
     </div>
 
+    <!-- DASHBOARD (POR MÊS DE COMPETÊNCIA) -->
+    <div class="page" id="page-dashboard-competencia">
+      <div class="row-flex" style="justify-content:space-between; margin-bottom:4px;">
+        <div>
+          <h2 class="page-title">Painel de orçamento — por competência</h2>
+          <p class="page-sub">Gasto acumulado em cada categoria do Anexo V, agrupado pelo mês a que a despesa se refere (independente de quando foi paga).</p>
+        </div>
+      </div>
+
+      <div class="contract-bar">
+        <label for="dashContractComp">Contrato</label>
+        <select id="dashContractComp"></select>
+        <label for="monthSelectComp">Mês de competência</label>
+        <select id="monthSelectComp"></select>
+        <span class="contract-count" id="dashContractMetaComp"></span>
+      </div>
+
+      <div class="kpi-row" id="kpiRowComp"></div>
+
+      <div class="card">
+        <div class="card-header"><p class="card-title">Limite x gasto por categoria (competência)</p></div>
+        <div class="chart-wrap"><canvas id="catChartComp" role="img" aria-label="Gráfico de barras comparando limite mensal e gasto por categoria, por competência"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><p class="card-title">Detalhamento por categoria (competência)</p></div>
+        <table>
+          <thead><tr><th>Categoria</th><th class="num">Limite mensal</th><th class="num">Gasto na competência</th><th class="num">Saldo</th><th style="width:160px;">% utilizado</th></tr></thead>
+          <tbody id="catTableBodyComp"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <p class="card-title">Valores restantes a gastar (competência)</p>
+        </div>
+        <p class="hint" style="margin-top:-8px; margin-bottom:12px;">Ordenado da categoria mais crítica (menor saldo restante) para a mais folgada.</p>
+        <table>
+          <thead><tr><th>Categoria</th><th class="num">Saldo restante</th><th class="num">% ainda disponível</th><th style="width:120px;">Status</th></tr></thead>
+          <tbody id="saldoTableBodyComp"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- LANÇAMENTOS -->
     <div class="page" id="page-lancamentos">
       <h2 class="page-title">Lançamentos</h2>
@@ -275,6 +320,10 @@
           <div>
             <label style="font-size:12px; color:var(--text-2); display:block; margin-bottom:4px;">Data</label>
             <input type="date" id="newDate" style="width:150px;">
+          </div>
+          <div>
+            <label style="font-size:12px; color:var(--text-2); display:block; margin-bottom:4px;">Mês de competência</label>
+            <input type="month" id="newCompetencyMonth" style="width:150px;">
           </div>
           <div>
             <label style="font-size:12px; color:var(--text-2); display:block; margin-bottom:4px;">Valor (R$)</label>
@@ -302,6 +351,7 @@
           <button class="primary" id="btnAddSingle">Adicionar</button>
         </div>
         <p class="hint" id="newError" style="color:var(--danger); display:none;"></p>
+        <p class="hint">Deixe "Mês de competência" em branco para usar automaticamente o mês da data de pagamento. Preencha só quando o pagamento for feito em mês diferente do mês a que a despesa se refere.</p>
       </div>
 
       <div class="card" id="importLancCard">
@@ -332,7 +382,7 @@
         </div>
         <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>Data</th><th>Contrato</th><th>Descrição</th><th class="num">Valor</th><th>Direção</th><th style="width:200px;">Categoria</th><th style="width:220px;">Subcategoria</th><th></th></tr></thead>
+          <thead><tr><th>Data</th><th>Competência</th><th>Contrato</th><th>Descrição</th><th class="num">Valor</th><th>Direção</th><th style="width:200px;">Categoria</th><th style="width:220px;">Subcategoria</th><th></th></tr></thead>
           <tbody id="lancTableBody"></tbody>
         </table>
         </div>
@@ -577,8 +627,8 @@ async function loadAccessProfiles(){
 
 /* ===================== STORAGE (Supabase) ===================== */
 // Preencha com os dados do seu projeto Supabase (Project Settings > API)
-const SUPABASE_URL = 'https://cfdhuqgzxdofsllcgxih.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_CaTNWAnV9rhxkr03R55Mjg_8dki_Hjt';
+const SUPABASE_URL = 'COLE_AQUI_A_URL_DO_SEU_PROJETO';
+const SUPABASE_ANON_KEY = 'COLE_AQUI_A_ANON_KEY_DO_SEU_PROJETO';
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -608,6 +658,7 @@ function mapTxOut(t){
     contract_id:t.contractId, tx_date:t.date, value:t.value, description:t.desc, direction:t.direction,
     label:t.label||null, code:t.code||null, manual_cat:t.manualCat??null, cat:t.cat??null,
     manual_item_code:t.manualItemCode||null, item_code:t.itemCode||null,
+    competency_month: t.competencyMonth || null,
     created_by: currentUser ? currentUser.email : null,
   };
 }
@@ -616,6 +667,7 @@ function mapTxIn(t){
     id:t.id, contractId:t.contract_id, date:t.tx_date, value:parseFloat(t.value), desc:t.description,
     direction:t.direction, label:t.label, code:t.code, manualCat:t.manual_cat, cat:t.cat,
     manualItemCode:t.manual_item_code, itemCode:t.item_code,
+    competencyMonth: t.competency_month || null,
   };
 }
 function mapDepOut(d){ return {from_code:d.from, to_code:d.to}; }
@@ -726,6 +778,16 @@ function monthOf(dateStr){
   return dt.getMonth() + 1;
 }
 
+// Mês de competência do lançamento: usa o campo competencyMonth ("YYYY-MM")
+// quando preenchido manualmente; senão cai no mês da data de pagamento.
+function competencyMonthOf(tx){
+  if(tx.competencyMonth){
+    const parts = tx.competencyMonth.split('-');
+    return parseInt(parts[1], 10);
+  }
+  return monthOf(tx.date);
+}
+
 // Se o contrato começa no meio do mês selecionado, retorna a fração de dias
 // restantes daquele mês (dias restantes / dias totais do mês). Fora do mês
 // de início, ou sem data de início cadastrada, retorna null (sem proporção).
@@ -805,6 +867,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
 function applyNavPermissions(){
   const navMap = {
     dashboard: hasAccess('painel', 'view'),
+    'dashboard-competencia': hasAccess('painel', 'view'),
     lancamentos: hasAccess('lancamentos', 'view'),
     contratos: hasAccess('contratos', 'view'),
     config: hasAccess('usuarios', 'view') || hasAccess('config', 'view'),
@@ -871,7 +934,36 @@ function populateContractSelect(sel, includeAll){
 }
 
 /* ===================== DASHBOARD ===================== */
-let catChart = null;
+let chartInstances = {};
+
+function renderChart(cats, totals, canvasId, enableClick){
+  canvasId = canvasId || 'catChart';
+  enableClick = enableClick !== false;
+  const ctx = document.getElementById(canvasId);
+  const labels = cats.map(c => c.code + '. ' + c.name);
+  const limits = cats.map(c => c.limit);
+  const spent = cats.map(c => totals[c.code] || 0);
+  if(chartInstances[canvasId]) chartInstances[canvasId].destroy();
+  chartInstances[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [
+      {label:'Limite mensal', data: limits, backgroundColor:'#EAD9C7', borderRadius:4},
+      {label:'Gasto no mês', data: spent, backgroundColor: spent.map((v,i)=> v>limits[i] ? '#D0605F' : '#EE6809'), borderRadius:4},
+    ]},
+    options: { responsive:true, maintainAspectRatio:false,
+      scales:{ y:{beginAtZero:true, ticks:{callback:v=>'R$ '+(v/1000).toLocaleString('pt-BR')+'k'}, grid:{color:'#EEF0F3'}}, x:{grid:{display:false}} },
+      plugins:{legend:{display:false}},
+      onHover: (evt, elements) => { evt.native.target.style.cursor = (enableClick && elements.length) ? 'pointer' : 'default'; },
+      onClick: (evt, elements) => {
+        if(!enableClick || !elements.length || !lastDashboardData) return;
+        const idx = elements[0].index;
+        const cat = cats[idx];
+        if(!cat) return;
+        goToLancamentosFiltered(lastDashboardData.contractId, lastDashboardData.month, cat.code);
+      },
+    }
+  });
+}
 
 function populateMonthSelect(sel, includeAllPeriod){
   sel.innerHTML = '';
@@ -895,6 +987,19 @@ function spentByCategory(contractId, month){
     if(tx.contractId !== contractId) return;
     if(tx.direction !== 'SAIDA') return;
     if(month !== 'all' && monthOf(tx.date) !== month) return;
+    if(tx.cat && totals[tx.cat] !== undefined) totals[tx.cat] += tx.value;
+  });
+  return totals;
+}
+
+function spentByCategoryCompetencia(contractId, month){
+  const cats = catsFor(contractId);
+  const totals = {};
+  cats.forEach(c => totals[c.code] = 0);
+  transactions.forEach(tx => {
+    if(tx.contractId !== contractId) return;
+    if(tx.direction !== 'SAIDA') return;
+    if(month !== 'all' && competencyMonthOf(tx) !== month) return;
     if(tx.cat && totals[tx.cat] !== undefined) totals[tx.cat] += tx.value;
   });
   return totals;
@@ -987,7 +1092,97 @@ function renderDashboard(){
   }
 
   lastDashboardData = {contractId, month, isAllPeriod, cats: catsWithLimit, totals, totalLimit, totalSpent, pct, filteredRows: rows};
-  renderChart(catsWithLimit, totals);
+  renderChart(catsWithLimit, totals, 'catChart', true);
+
+  renderDashboardCompetencia();
+}
+
+// Painel por competência: mesma lógica do painel por data de pagamento, mas
+// agrupando os lançamentos pelo mês de competência (competencyMonthOf) em vez
+// da data real de pagamento. A regra proporcional do mês de início do contrato
+// também passa a considerar o mês de competência aqui.
+function renderDashboardCompetencia(){
+  const contractSel = document.getElementById('dashContractComp');
+  if(!contractSel) return; // página ainda não montada
+  const contractId = contractSel.value;
+  if(!contractId) return;
+  const monthRaw = document.getElementById('monthSelectComp').value;
+  const isAllPeriod = monthRaw === 'all';
+  const month = isAllPeriod ? 'all' : parseInt(monthRaw, 10);
+  const cats = catsFor(contractId);
+  const totals = spentByCategoryCompetencia(contractId, month);
+  const limitMultiplier = isAllPeriod ? 12 : 1;
+  const catsWithLimit = cats.map(c => ({...c, limit: c.limit * limitMultiplier}));
+  let totalLimit = catsWithLimit.reduce((s,c)=>s+c.limit,0);
+  const ct = contracts.find(c=>c.id===contractId);
+  const prorationFactor = isAllPeriod ? null : startMonthProrationFactor(ct, month);
+  if(prorationFactor !== null){
+    totalLimit = totalLimit * prorationFactor;
+  }
+  const totalSpent = Object.values(totals).reduce((s,v)=>s+v,0);
+  const pct = totalLimit ? totalSpent/totalLimit : 0;
+
+  const txCount = transactions.filter(t=>t.contractId===contractId).length;
+  document.getElementById('dashContractMetaComp').textContent = `${txCount} lançamento(s) neste contrato`;
+
+  const kpiRow = document.getElementById('kpiRowComp');
+  const prorationNote = prorationFactor !== null
+    ? `<div class="hint" style="margin:4px 0 0;">Proporcional · contrato iniciou em ${fmtDate(ct.startDate)} (${fmtPct(prorationFactor)} do mês)</div>`
+    : '';
+  kpiRow.innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">${isAllPeriod?'Limite anual total':'Limite mensal total'}</div><div class="kpi-value">${fmtCur(totalLimit)}</div>${prorationNote}</div>
+    <div class="kpi-card"><div class="kpi-label">${isAllPeriod?'Gasto no período':'Gasto na competência'}</div><div class="kpi-value">${fmtCur(totalSpent)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Saldo disponível</div><div class="kpi-value ${totalLimit-totalSpent<0?'danger':'ok'}">${fmtCur(totalLimit-totalSpent)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">% utilizado</div><div class="kpi-value ${pct>1?'danger':''}">${fmtPct(pct)}</div></div>
+  `;
+
+  const tbody = document.getElementById('catTableBodyComp');
+  const saldoBody = document.getElementById('saldoTableBodyComp');
+  tbody.innerHTML = '';
+  saldoBody.innerHTML = '';
+
+  const rows = [];
+  catsWithLimit.forEach(c => {
+    const spent = totals[c.code] || 0;
+    const saldo = c.limit - spent;
+    const p = c.limit ? spent/c.limit : 0;
+    rows.push({c, spent, saldo, p});
+  });
+
+  if(catsWithLimit.every(c=>c.limit===0)){
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">Este contrato ainda não tem limites definidos. Configure o Anexo V na aba Contratos.</div></td></tr>';
+    saldoBody.innerHTML = '<tr><td colspan="4"><div class="empty-state">Sem limites definidos ainda.</div></td></tr>';
+  } else {
+    rows.forEach(({c, spent, saldo, p}) => {
+      const cls = statusClass(p);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${c.code}. ${c.name}</td>
+        <td class="num">${fmtCur(c.limit)}</td>
+        <td class="num">${fmtCur(spent)}</td>
+        <td class="num" style="color:${saldo<0?'var(--danger)':'inherit'}">${fmtCur(saldo)}</td>
+        <td>
+          <span class="badge ${cls}">${fmtPct(p)}</span>
+          <div class="barwrap"><div class="barfill ${cls}" style="width:${Math.min(p*100,100)}%"></div></div>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+
+    const sortedBySaldo = [...rows].sort((a,b) => a.saldo - b.saldo);
+    sortedBySaldo.forEach(({c, saldo, p}) => {
+      const cls = statusClass(p);
+      const pctRestante = c.limit ? Math.max(saldo/c.limit, 0) : 0;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${c.code}. ${c.name}</td>
+        <td class="num" style="font-weight:600; color:${saldo<0?'var(--danger)':'inherit'}">${fmtCur(saldo)}</td>
+        <td class="num">${fmtPct(pctRestante)}</td>
+        <td><span class="badge ${cls}">${cls==='ok'?'Tranquilo':cls==='warn'?'Atenção':'Estourado'}</span></td>`;
+      saldoBody.appendChild(tr);
+    });
+  }
+
+  renderChart(catsWithLimit, totals, 'catChartComp', false);
 }
 
 document.getElementById('btnDownloadPdf').addEventListener('click', () => {
@@ -1060,33 +1255,6 @@ document.getElementById('btnDownloadPdf').addEventListener('click', () => {
   doc.save(fname);
 });
 
-function renderChart(cats, totals){
-  const ctx = document.getElementById('catChart');
-  const labels = cats.map(c => c.code + '. ' + c.name);
-  const limits = cats.map(c => c.limit);
-  const spent = cats.map(c => totals[c.code] || 0);
-  if(catChart) catChart.destroy();
-  catChart = new Chart(ctx, {
-    type: 'bar',
-    data: { labels, datasets: [
-      {label:'Limite mensal', data: limits, backgroundColor:'#EAD9C7', borderRadius:4},
-      {label:'Gasto no mês', data: spent, backgroundColor: spent.map((v,i)=> v>limits[i] ? '#D0605F' : '#EE6809'), borderRadius:4},
-    ]},
-    options: { responsive:true, maintainAspectRatio:false,
-      scales:{ y:{beginAtZero:true, ticks:{callback:v=>'R$ '+(v/1000).toLocaleString('pt-BR')+'k'}, grid:{color:'#EEF0F3'}}, x:{grid:{display:false}} },
-      plugins:{legend:{display:false}},
-      onHover: (evt, elements) => { evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
-      onClick: (evt, elements) => {
-        if(!elements.length || !lastDashboardData) return;
-        const idx = elements[0].index;
-        const cat = cats[idx];
-        if(!cat) return;
-        goToLancamentosFiltered(lastDashboardData.contractId, lastDashboardData.month, cat.code);
-      },
-    }
-  });
-}
-
 /* ===================== LANÇAMENTOS ===================== */
 function categoryOptionsHtml(contractId, selected){
   let html = '<option value="">Não classificado</option>';
@@ -1154,9 +1322,16 @@ function renderLancamentos(){
       itemCell = it ? `${it.itemCode} — ${it.name}` : '<span class="tag-transfer">—</span>';
     }
 
+    const compValue = tx.competencyMonth || tx.date.slice(0,7);
+    const compIsDefault = !tx.competencyMonth;
+    const compCell = canEdit
+      ? `<input type="month" data-idx="${realIdx}" class="competencySelect" value="${compValue}" style="width:130px;${compIsDefault?'opacity:.6;':''}" title="${compIsDefault?'Igual ao mês de pagamento (não definido manualmente)':'Definido manualmente'}">`
+      : `<span class="${compIsDefault?'hint':''}">${compValue.split('-').reverse().join('/')}</span>`;
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${fmtDate(tx.date)}</td>
+      <td>${compCell}</td>
       <td><span class="badge blue">${ct ? ct.name : '—'}</span></td>
       <td>${tx.desc}</td>
       <td class="num" style="color:${tx.direction==='ENTRADA'?'var(--ok)':'inherit'}">${tx.direction==='ENTRADA'?'+':''}${fmtCur(tx.value)}</td>
@@ -1168,9 +1343,23 @@ function renderLancamentos(){
     tbody.appendChild(tr);
   });
 
+
   if(shown === 0){
-    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">Nenhum lançamento encontrado com esse filtro.</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state">Nenhum lançamento encontrado com esse filtro.</div></td></tr>';
   }
+
+  tbody.querySelectorAll('.competencySelect').forEach(inp => {
+    inp.addEventListener('change', async e => {
+      const idx = parseInt(e.target.dataset.idx, 10);
+      const val = e.target.value;
+      const paymentMonth = transactions[idx].date.slice(0,7);
+      // se o usuário deixar igual ao mês de pagamento (ou apagar), volta a ser "automático"
+      transactions[idx].competencyMonth = (!val || val === paymentMonth) ? null : val;
+      await saveTx();
+      renderLancamentos();
+      renderDashboard();
+    });
+  });
 
   tbody.querySelectorAll('.catSelect').forEach(sel => {
     sel.addEventListener('change', async e => {
@@ -1256,6 +1445,7 @@ document.getElementById('btnAddSingle').addEventListener('click', async () => {
   clearNewError();
   const contractId = document.getElementById('lancContract').value;
   const date = document.getElementById('newDate').value;
+  const competencyRaw = document.getElementById('newCompetencyMonth').value;
   const valueRaw = document.getElementById('newValue').value;
   const desc = document.getElementById('newDesc').value.trim();
   const direction = document.getElementById('newDirection').value;
@@ -1274,8 +1464,10 @@ document.getElementById('btnAddSingle').addEventListener('click', async () => {
     return;
   }
 
+  const competencyMonth = (competencyRaw && competencyRaw !== date.slice(0,7)) ? competencyRaw : null;
+
   const tx = {
-    date, value, desc, direction, label: null, code: null, contractId,
+    date, value, desc, direction, label: null, code: null, contractId, competencyMonth,
     manualCat: catSel ? parseInt(catSel, 10) : null,
     manualItemCode: itemSel ? itemSel : null,
   };
@@ -1287,6 +1479,7 @@ document.getElementById('btnAddSingle').addEventListener('click', async () => {
   document.getElementById('newValue').value = '';
   document.getElementById('newDesc').value = '';
   document.getElementById('newCat').value = '';
+  document.getElementById('newCompetencyMonth').value = '';
   populateNewItemSelect();
 
   renderLancamentos();
@@ -1444,8 +1637,8 @@ function renderContractEdit(){
       its.forEach(it => {
         rowsHtml += `
           <div class="item-row" data-item="${it.itemCode}">
-            <span>${it.itemCode}</span>
-            <span>${it.name}</span>
+            <input type="text" value="${it.itemCode}" class="itemCodeInput" data-code="${it.itemCode}" data-cat="${c.code}">
+            <input type="text" value="${it.name}" class="itemNameInput" data-code="${it.itemCode}" data-cat="${c.code}">
             <input type="number" step="0.01" value="${it.limit}" class="itemLimitInput" data-code="${it.itemCode}" data-cat="${c.code}">
             <button class="small ghost-danger" data-delitem="${it.itemCode}" data-cat="${c.code}">×</button>
           </div>`;
@@ -1485,6 +1678,57 @@ function renderContractEdit(){
       }
       const v = parseFloat(String(inp.value).replace(',', '.'));
       if(it){ it.limit = v; await saveItems(); recategorizeAll(); await saveTx(); renderContractList(); renderContractEdit(); renderDashboard(); }
+    });
+  });
+
+  container.querySelectorAll('.itemNameInput').forEach(inp => {
+    inp.addEventListener('change', async () => {
+      const code = inp.dataset.code;
+      const it = items.find(i => i.contractId===editingContractId && i.itemCode===code);
+      if(!it) return;
+      const trimmed = inp.value.trim();
+      if(!trimmed){ alert('A descrição do item não pode ficar em branco.'); inp.value = it.name; return; }
+      it.name = trimmed;
+      await saveItems();
+      renderContractList(); renderContractEdit(); renderDashboard(); renderLancamentos();
+    });
+  });
+
+  container.querySelectorAll('.itemCodeInput').forEach(inp => {
+    inp.addEventListener('change', async () => {
+      const oldCode = inp.dataset.code;
+      const it = items.find(i => i.contractId===editingContractId && i.itemCode===oldCode);
+      if(!it) return;
+      const newCode = inp.value.trim();
+
+      if(!newCode){ alert('O código do item não pode ficar em branco.'); inp.value = oldCode; return; }
+      if(!isValidCodeText(newCode)){ warnNotACode('Código', newCode); inp.value = oldCode; return; }
+      if(newCode !== oldCode && items.some(i => i.contractId===editingContractId && i.itemCode===newCode)){
+        alert('Já existe um item com esse código neste contrato.');
+        inp.value = oldCode;
+        return;
+      }
+      if(newCode === oldCode) return;
+
+      const txCount = transactions.filter(t => t.contractId===editingContractId && (t.itemCode===oldCode || t.manualItemCode===oldCode)).length;
+      if(txCount > 0 && !confirm(`Este código já está usado em ${txCount} lançamento(s) e em regras de nomenclatura (se houver). Eles serão atualizados para o novo código "${newCode}". Continuar?`)){
+        inp.value = oldCode;
+        return;
+      }
+
+      it.itemCode = newCode;
+      transactions.forEach(tx => {
+        if(tx.contractId !== editingContractId) return;
+        if(tx.manualItemCode === oldCode) tx.manualItemCode = newCode;
+      });
+      // regras de nomenclatura que apontavam pro código antigo passam a apontar pro novo
+      nomenclature.forEach(n => { if(normalize(n.to) === normalize(oldCode)) n.to = newCode; });
+
+      await saveItems();
+      await saveDep();
+      recategorizeAll();
+      await saveTx();
+      renderContractList(); renderContractEdit(); renderDashboard(); renderLancamentos();
     });
   });
 
@@ -1738,9 +1982,11 @@ function renderDep(){
       recategorizeAll();
       await saveTx();
       renderDashboard();
+  populateContractSelect(document.getElementById('dashContractComp'), false);
       renderLancamentos();
     });
   });
+  document.getElementById('dashContractComp').value = selectedContractId;
 }
 
 document.getElementById('btnAddDep').addEventListener('click', async () => {
@@ -2093,6 +2339,10 @@ function renderProfilesPage(){
         alert(err.message || 'Não foi possível salvar essa permissão.');
         renderProfilesPage();
       }
+  populateMonthSelect(document.getElementById('monthSelectComp'), true);
+  document.getElementById('monthSelectComp').value = 8;
+  document.getElementById('monthSelectComp').addEventListener('change', renderDashboardCompetencia);
+
     });
   });
 
@@ -2102,6 +2352,7 @@ function renderProfilesPage(){
       const p = accessProfiles.find(x=>x.id===id);
       if(!confirm(`Remover o perfil "${p.name}"?`)) return;
       try{
+  document.getElementById('dashContractComp').addEventListener('change', e => { selectedContractId = e.target.value; renderDashboardCompetencia(); });
         const { error } = await sb.from('access_profiles').delete().eq('id', id);
         if(error) throw error;
         await loadAccessProfiles();
