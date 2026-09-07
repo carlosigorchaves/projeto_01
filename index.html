@@ -415,8 +415,9 @@
 
       <div class="card">
         <div class="card-header"><p class="card-title">Todos os contratos (<span id="contractTotal">0</span>)</p></div>
-        <div class="row-flex" style="margin-bottom:14px;">
-          <label style="font-size:12px; color:var(--text-2); display:flex; align-items:center; gap:6px;">
+        <div class="row-flex" style="margin-bottom:14px; gap:14px;">
+          <input type="text" id="contractSearch" placeholder="Buscar contrato pelo nome..." style="flex:1; min-width:240px;">
+          <label style="font-size:12px; color:var(--text-2); display:flex; align-items:center; gap:6px; white-space:nowrap;">
             <input type="checkbox" id="showInactive" style="width:auto;"> Mostrar contratos inativos
           </label>
         </div>
@@ -627,8 +628,8 @@ async function loadAccessProfiles(){
 
 /* ===================== STORAGE (Supabase) ===================== */
 // Preencha com os dados do seu projeto Supabase (Project Settings > API)
-const SUPABASE_URL = 'https://cfdhuqgzxdofsllcgxih.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_CaTNWAnV9rhxkr03R55Mjg_8dki_Hjt';
+const SUPABASE_URL = 'COLE_AQUI_A_URL_DO_SEU_PROJETO';
+const SUPABASE_ANON_KEY = 'COLE_AQUI_A_ANON_KEY_DO_SEU_PROJETO';
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -1547,7 +1548,16 @@ document.getElementById('btnImport').addEventListener('click', async () => {
 function renderContractList(){
   const list = document.getElementById('contractList');
   const showInactive = document.getElementById('showInactive').checked;
-  const visible = contracts.filter(ct => showInactive || ct.active !== false);
+  const searchTerm = document.getElementById('contractSearch').value
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const visible = contracts
+    .filter(ct => showInactive || ct.active !== false)
+    .filter(ct => {
+      if(!searchTerm) return true;
+      const name = ct.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return name.includes(searchTerm);
+    });
   document.getElementById('contractTotal').textContent = `${visible.length} de ${contracts.length}`;
   list.innerHTML = '';
   visible.forEach(ct => {
@@ -1572,7 +1582,9 @@ function renderContractList(){
     list.appendChild(tile);
   });
   if(visible.length === 0){
-    list.innerHTML = '<div class="empty-state">Nenhum contrato ativo. Marque "Mostrar contratos inativos" para ver todos.</div>';
+    list.innerHTML = searchTerm
+      ? '<div class="empty-state">Nenhum contrato encontrado para essa busca.</div>'
+      : '<div class="empty-state">Nenhum contrato ativo. Marque "Mostrar contratos inativos" para ver todos.</div>';
   }
 }
 
@@ -1860,6 +1872,7 @@ function renderContractEdit(){
 }
 
 document.getElementById('showInactive').addEventListener('change', renderContractList);
+document.getElementById('contractSearch').addEventListener('input', renderContractList);
 
 document.getElementById('btnCloseContractModal').addEventListener('click', () => {
   editingContractId = null;
