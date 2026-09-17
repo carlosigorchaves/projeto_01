@@ -628,8 +628,8 @@ async function loadAccessProfiles(){
 
 /* ===================== STORAGE (Supabase) ===================== */
 // Preencha com os dados do seu projeto Supabase (Project Settings > API)
-const SUPABASE_URL = 'https://cfdhuqgzxdofsllcgxih.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_CaTNWAnV9rhxkr03R55Mjg_8dki_Hjt';
+const SUPABASE_URL = 'COLE_AQUI_A_URL_DO_SEU_PROJETO';
+const SUPABASE_ANON_KEY = 'COLE_AQUI_A_ANON_KEY_DO_SEU_PROJETO';
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -1012,6 +1012,31 @@ function spentByCategoryCompetencia(contractId, month){
   return totals;
 }
 
+// Soma todas as entradas do contrato no período (sem filtro de categoria).
+function totalEntradas(contractId, month){
+  let total = 0;
+  transactions.forEach(tx => {
+    if(tx.contractId !== contractId) return;
+    if(tx.direction !== 'ENTRADA') return;
+    if(month !== 'all' && monthOf(tx.date) !== month) return;
+    total += tx.value;
+  });
+  return total;
+}
+
+// Soma todas as saídas do contrato no período (todas, inclusive transferências
+// internas sem categoria) — usado pra calcular o Lucro (entradas - saídas).
+function totalSaidasAll(contractId, month){
+  let total = 0;
+  transactions.forEach(tx => {
+    if(tx.contractId !== contractId) return;
+    if(tx.direction !== 'SAIDA') return;
+    if(month !== 'all' && monthOf(tx.date) !== month) return;
+    total += tx.value;
+  });
+  return total;
+}
+
 let lastDashboardData = null;
 
 function renderDashboard(){
@@ -1031,6 +1056,10 @@ function renderDashboard(){
   }
   const totalSpent = Object.values(totals).reduce((s,v)=>s+v,0);
   const pct = totalLimit ? totalSpent/totalLimit : 0;
+  const entradas = totalEntradas(contractId, month);
+  const saidasAll = totalSaidasAll(contractId, month);
+  const lucro = entradas - saidasAll;
+  const saldoDisponivel = entradas - totalSpent;
 
   const txCount = transactions.filter(t=>t.contractId===contractId).length;
   document.getElementById('dashContractMeta').textContent = `${txCount} lançamento(s) neste contrato`;
@@ -1040,10 +1069,10 @@ function renderDashboard(){
     ? `<div class="hint" style="margin:4px 0 0;">Proporcional · contrato iniciou em ${fmtDate(ct.startDate)} (${fmtPct(prorationFactor)} do mês)</div>`
     : '';
   kpiRow.innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">${isAllPeriod?'Limite anual total':'Limite mensal total'}</div><div class="kpi-value">${fmtCur(totalLimit)}</div>${prorationNote}</div>
+    <div class="kpi-card"><div class="kpi-label">${isAllPeriod?'Lucro no período':'Lucro no mês'}</div><div class="kpi-value ${lucro<0?'danger':'ok'}">${fmtCur(lucro)}</div></div>
     <div class="kpi-card"><div class="kpi-label">${isAllPeriod?'Gasto no período':'Gasto no mês'}</div><div class="kpi-value">${fmtCur(totalSpent)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Saldo disponível</div><div class="kpi-value ${totalLimit-totalSpent<0?'danger':'ok'}">${fmtCur(totalLimit-totalSpent)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">% utilizado</div><div class="kpi-value ${pct>1?'danger':''}">${fmtPct(pct)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Saldo disponível</div><div class="kpi-value ${saldoDisponivel<0?'danger':'ok'}">${fmtCur(saldoDisponivel)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">% utilizado</div><div class="kpi-value ${pct>1?'danger':''}">${fmtPct(pct)}</div>${prorationNote}</div>
   `;
 
   const tbody = document.getElementById('catTableBody');
@@ -1098,7 +1127,7 @@ function renderDashboard(){
     });
   }
 
-  lastDashboardData = {contractId, month, isAllPeriod, cats: catsWithLimit, totals, totalLimit, totalSpent, pct, filteredRows: rows};
+  lastDashboardData = {contractId, month, isAllPeriod, cats: catsWithLimit, totals, totalLimit, totalSpent, pct, entradas, saidasAll, lucro, saldoDisponivel, filteredRows: rows};
   renderChart(catsWithLimit, totals, 'catChart', true);
 
   renderDashboardCompetencia();
@@ -1211,9 +1240,9 @@ document.getElementById('btnDownloadPdf').addEventListener('click', () => {
   doc.setTextColor(34,28,20);
   const kpiY = 40;
   const kpis = [
-    [lastDashboardData.isAllPeriod ? 'Limite anual total' : 'Limite mensal total', fmtCur(lastDashboardData.totalLimit)],
+    [lastDashboardData.isAllPeriod ? 'Lucro no período' : 'Lucro no mês', fmtCur(lastDashboardData.lucro)],
     [lastDashboardData.isAllPeriod ? 'Gasto no período' : 'Gasto no mês', fmtCur(lastDashboardData.totalSpent)],
-    ['Saldo disponível', fmtCur(lastDashboardData.totalLimit - lastDashboardData.totalSpent)],
+    ['Saldo disponível', fmtCur(lastDashboardData.saldoDisponivel)],
     ['% utilizado', fmtPct(lastDashboardData.pct)],
   ];
   doc.autoTable({
