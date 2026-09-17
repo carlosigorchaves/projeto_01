@@ -1069,7 +1069,7 @@ function renderDashboard(){
     ? `<div class="hint" style="margin:4px 0 0;">Proporcional · contrato iniciou em ${fmtDate(ct.startDate)} (${fmtPct(prorationFactor)} do mês)</div>`
     : '';
   kpiRow.innerHTML = `
-    <div class="kpi-card"><div class="kpi-label">${isAllPeriod?'Lucro no período':'Lucro no mês'}</div><div class="kpi-value ${lucro<0?'danger':'ok'}">${fmtCur(lucro)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">${isAllPeriod?'Total de entradas no período':'Total de entradas no mês'}</div><div class="kpi-value ok">${fmtCur(entradas)}</div></div>
     <div class="kpi-card"><div class="kpi-label">${isAllPeriod?'Gasto no período':'Gasto no mês'}</div><div class="kpi-value">${fmtCur(totalSpent)}</div></div>
     <div class="kpi-card"><div class="kpi-label">Saldo disponível</div><div class="kpi-value ${saldoDisponivel<0?'danger':'ok'}">${fmtCur(saldoDisponivel)}</div></div>
     <div class="kpi-card"><div class="kpi-label">% utilizado</div><div class="kpi-value ${pct>1?'danger':''}">${fmtPct(pct)}</div>${prorationNote}</div>
@@ -1240,7 +1240,7 @@ document.getElementById('btnDownloadPdf').addEventListener('click', () => {
   doc.setTextColor(34,28,20);
   const kpiY = 40;
   const kpis = [
-    [lastDashboardData.isAllPeriod ? 'Lucro no período' : 'Lucro no mês', fmtCur(lastDashboardData.lucro)],
+    [lastDashboardData.isAllPeriod ? 'Total de entradas no período' : 'Total de entradas no mês', fmtCur(lastDashboardData.entradas)],
     [lastDashboardData.isAllPeriod ? 'Gasto no período' : 'Gasto no mês', fmtCur(lastDashboardData.totalSpent)],
     ['Saldo disponível', fmtCur(lastDashboardData.saldoDisponivel)],
     ['% utilizado', fmtPct(lastDashboardData.pct)],
