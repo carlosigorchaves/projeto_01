@@ -220,6 +220,10 @@
   .est-note{font-size:11.5px; color:var(--text-3); line-height:1.6;}
   .est-toggle{font:inherit; font-size:12px; font-weight:600; padding:5px 12px; border-radius:20px; border:1px solid var(--border); background:#fff; color:var(--text-2); cursor:pointer;}
   .est-toggle.on{background:var(--brand-light); border-color:var(--brand); color:var(--brand-dark);}
+  .est-tabs{display:flex; gap:6px; margin:0 0 18px; border-bottom:1px solid var(--border);}
+  .est-tab{font:inherit; font-size:13px; font-weight:600; padding:9px 18px; border:0; background:none; color:var(--text-3); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px;}
+  .est-tab.on{color:var(--brand-dark); border-bottom-color:var(--brand);}
+  .est-seg{display:flex; height:100%; width:100%;}
   .est-hide-vt .ben-vt, .est-hide-va .ben-va{display:none;}
   .est-pill.muted{background:#F1EEE8; color:var(--text-2);}
   .est-neg{color:var(--danger);}
@@ -524,6 +528,11 @@
       <div id="estFolhaState" class="est-state"></div>
 
       <div id="estFolhaContent" style="display:none;">
+        <div class="est-tabs" role="tablist">
+          <button type="button" class="est-tab on" id="estTabFolha" role="tab">Folha de pagamento</button>
+          <button type="button" class="est-tab" id="estTabBen" role="tab">Benefícios</button>
+        </div>
+        <div id="estFolhaViewFolha">
         <div class="kpi-row" id="estFolhaKpis" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));"></div>
         <div class="est-strips" id="estFolhaStrips"></div>
 
@@ -577,6 +586,44 @@
           </div>
         </div>
         <p class="est-note" id="estFolhaNote" style="margin-top:12px;"></p>
+        </div>
+
+        <div id="estFolhaViewBen" style="display:none;">
+          <div id="estBenEmpty" class="est-state" style="display:none;"></div>
+          <div id="estBenBody">
+            <div class="kpi-row" id="estBenKpis" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));"></div>
+            <div class="est-grid-wide">
+              <div class="card">
+                <div class="card-header"><div><p class="card-title">Benefícios por contrato</p><p class="est-sub">Oito maiores · VT e VA empilhados · clique para localizar na tabela</p></div></div>
+                <div id="estBenRanking"></div>
+              </div>
+              <div class="card">
+                <div class="card-header"><div><p class="card-title">VT x VA</p><p class="est-sub">Participação de cada benefício</p></div></div>
+                <div style="position:relative; height:200px;"><canvas id="estBenDonut"></canvas></div>
+                <div id="estBenLegend" style="margin-top:12px;"></div>
+              </div>
+            </div>
+            <div class="card" style="margin-bottom:20px;">
+              <div class="card-header"><div><p class="card-title">Evolução mensal dos benefícios</p><p class="est-sub">VT e VA por competência (período e contrato selecionados)</p></div></div>
+              <div style="position:relative; height:240px;"><canvas id="estBenEvolucao"></canvas></div>
+            </div>
+            <div class="est-insight" id="estBenInsight"></div>
+            <div class="card" style="padding:0;">
+              <div style="padding:18px 20px 4px;"><p class="card-title">Detalhamento dos benefícios por contrato</p><p class="est-sub">Valores da competência selecionada</p></div>
+              <div class="est-tools" style="padding:10px 20px 0; margin-bottom:10px;">
+                <input type="text" id="estBenSearch" placeholder="Buscar contrato..." style="min-width:220px; flex:1;">
+                <button id="btnEstBenCsv">Exportar CSV</button>
+              </div>
+              <div class="est-scroll">
+                <table class="est-table">
+                  <thead><tr><th>Contrato</th><th>Colab.</th><th class="ben-vt">VT</th><th class="ben-va">VA</th><th>Total benefícios</th><th>Por colaborador</th><th>% da folha</th><th>Var. mês</th><th>Situação</th></tr></thead>
+                  <tbody id="estBenTable"></tbody>
+                </table>
+              </div>
+            </div>
+            <p class="est-note" id="estBenNote" style="margin-top:12px;"></p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1483,6 +1530,7 @@ const FOLHA_ALERTA_VARIACAO = 0.20;           // variação mensal a partir da q
 
 let folhaData = {status:'idle', resumo:[], unidades:[], ultimaCarga:null, erro:null};
 let folhaView = null;
+let folhaTab = 'folha';  // 'folha' | 'ben'
 const folhaBen = {vt: true, va: true};  // benefícios exibidos (VT e VR)
 
 async function sbSelectAllPaged(table, orderCols){
@@ -1549,9 +1597,9 @@ function folhaBuildView(comp, periodo, contratoKey){
   const atual = doPeriodo.filter(r => folhaCompKey(r) === comp);
   const comps = [...new Set(doPeriodo.map(folhaCompKey))].sort();
   const prevComp = comps.filter(c => c < comp).pop() || null;
-  const prevMap = new Map();
+  const prevMap = new Map(), prevBenMap = new Map();
   doPeriodo.filter(r => prevComp && folhaCompKey(r) === prevComp)
-    .forEach(r => prevMap.set(r.coligada + '|' + r.codigo_origem, folhaTotalOf(r.valor_folha, r.fgts, r.emprestimos, r.vale_transporte, r.vale_alimentacao)));
+    .forEach(r => { const k = r.coligada + '|' + r.codigo_origem; prevMap.set(k, folhaTotalOf(r.valor_folha, r.fgts, r.emprestimos, r.vale_transporte, r.vale_alimentacao)); prevBenMap.set(k, {vt: r.vale_transporte, va: r.vale_alimentacao}); });
 
   const rows = new Map();
   folhaData.unidades.filter(u => u.ativo !== false).forEach(u => {
@@ -1568,7 +1616,8 @@ function folhaBuildView(comp, periodo, contratoKey){
   if(contratoKey) todas = todas.filter(r => r.key === contratoKey);
   const list = todas.map(r => {
     const prev = prevMap.get(r.key);
-    return {...r, informado: r.temLinha && r.folha !== null, variacao: (prev && prev > 0 && r.temLinha) ? (r.total - prev) / prev : null};
+    const pb = prevBenMap.get(r.key) || {};
+    return {...r, informado: r.temLinha && r.folha !== null, variacao: (prev && prev > 0 && r.temLinha) ? (r.total - prev) / prev : null, prevVt: pb.vt ?? null, prevVa: pb.va ?? null};
   });
   const prevTotal = prevComp ? [...prevMap.entries()].filter(([k]) => !contratoKey || k === contratoKey).reduce((s, [, v]) => s + v, 0) : null;
   const atualizadoEm = atual.map(r => r.atualizado_em).filter(Boolean).sort().pop() || (folhaData.ultimaCarga && folhaData.ultimaCarga.finalizada_em) || null;
@@ -1613,6 +1662,7 @@ function estFolhaPaint(){
   folhaView = contratoKey ? folhaBuildView(compSel.value, perSel.value, contratoKey) : completa;
   const v = folhaView, rows = v.rows;
   estFolhaState('');
+  estFolhaApplyTab();
 
   document.getElementById('estFolhaSub').textContent = contratoKey ? `${folhaCompLabel(v.comp)} · ${rows[0] ? rows[0].nome : ''}` : `${folhaCompLabel(v.comp)} · ${rows.length} contrato(s) relacionado(s)`;
   chip.textContent = v.atualizadoEm ? 'Atualização: ' + new Date(v.atualizadoEm).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short'}) : 'Atualização: —';
@@ -1740,7 +1790,143 @@ function estFolhaPaint(){
   document.getElementById('estFolhaInsight').innerHTML = `<strong>Leitura executiva</strong>${estEsc(txt)}`;
   document.getElementById('estFolhaNote').textContent = 'Células sem valor significam informação ausente, não zero confirmado. Fonte: carga do sistema de folha (' + (folhaData.ultimaCarga ? folhaData.ultimaCarga.fonte : 'origem não registrada') + ').';
 
+  renderEstBen(v, contratoKey, evoComps, totFolha);
   renderEstFolhaTable();
+}
+
+
+/* ---------- Tela de Benefícios (VT e VA) ---------- */
+function estFolhaApplyTab(){
+  document.getElementById('estFolhaViewFolha').style.display = folhaTab === 'folha' ? '' : 'none';
+  document.getElementById('estFolhaViewBen').style.display = folhaTab === 'ben' ? '' : 'none';
+  document.getElementById('estTabFolha').classList.toggle('on', folhaTab === 'folha');
+  document.getElementById('estTabBen').classList.toggle('on', folhaTab === 'ben');
+}
+const benSel = r => (folhaBen.vt ? (r.vt || 0) : 0) + (folhaBen.va ? (r.va || 0) : 0);
+const benTemDado = r => (folhaBen.vt && r.vt != null) || (folhaBen.va && r.va != null);
+let estBenRows = [];
+
+function renderEstBen(v, contratoKey, evoComps, totFolha){
+  const rows = v.rows;
+  const comDado = rows.filter(r => r.vt != null || r.va != null);
+  const vazio = document.getElementById('estBenEmpty'), corpo = document.getElementById('estBenBody');
+  if(!comDado.length){
+    vazio.style.display = ''; corpo.style.display = 'none';
+    vazio.innerHTML = '<b>Ainda não há dados de benefícios para esta competência.</b><br>Os valores de VT e VA aparecem aqui assim que a consulta do sistema de folha passar a trazê-los.';
+    estBenRows = []; return;
+  }
+  vazio.style.display = 'none'; corpo.style.display = '';
+
+  const totVt = rows.reduce((s, r) => s + (r.vt || 0), 0), totVa = rows.reduce((s, r) => s + (r.va || 0), 0);
+  const totBen = (folhaBen.vt ? totVt : 0) + (folhaBen.va ? totVa : 0);
+  const prevBen = rows.reduce((s, r) => s + (folhaBen.vt ? (r.prevVt || 0) : 0) + (folhaBen.va ? (r.prevVa || 0) : 0), 0);
+  const temPrev = rows.some(r => r.prevVt != null || r.prevVa != null);
+  const varBen = temPrev && prevBen > 0 ? (totBen - prevBen) / prevBen : null;
+  const colab = comDado.reduce((s, r) => s + (r.colab || 0), 0);
+  const nome = folhaBen.vt && folhaBen.va ? 'VT + VA' : folhaBen.vt ? 'VT' : folhaBen.va ? 'VA' : '';
+  const cards = [`<div class="kpi-card"><div class="kpi-label">Total de benefícios${nome ? ' (' + nome + ')' : ''}</div><div class="kpi-value">${nome ? fmtCur(totBen) : '—'}</div>
+      <div class="est-sub">${!nome ? 'nenhum benefício selecionado' : varBen === null ? 'sem competência anterior' : folhaFmtVar(varBen) + ' vs ' + folhaCompLabel(v.prevComp)}</div></div>`];
+  if(folhaBen.vt) cards.push(`<div class="kpi-card"><div class="kpi-label">Vale-transporte (VT)</div><div class="kpi-value">${fmtCur(totVt)}</div><div class="est-sub">${rows.filter(r => r.vt != null).length} contrato(s) com VT informado</div></div>`);
+  if(folhaBen.va) cards.push(`<div class="kpi-card"><div class="kpi-label">Vale-alimentação (VA)</div><div class="kpi-value">${fmtCur(totVa)}</div><div class="est-sub">${rows.filter(r => r.va != null).length} contrato(s) com VA informado</div></div>`);
+  cards.push(`<div class="kpi-card"><div class="kpi-label">Benefício por colaborador</div><div class="kpi-value">${nome && colab ? fmtCur(totBen / colab) : '—'}</div><div class="est-sub">${colab} colaboradores nos contratos com benefício</div></div>`);
+  cards.push(`<div class="kpi-card"><div class="kpi-label">Benefícios sobre a folha</div><div class="kpi-value">${nome && totFolha > 0 ? fmtPct(totBen / totFolha) : '—'}</div><div class="est-sub">em relação à folha de pagamento da competência</div></div>`);
+  document.getElementById('estBenKpis').innerHTML = cards.join('');
+
+  // Ranking empilhado VT + VA
+  const ranked = comDado.map(r => ({...r, ben: benSel(r)})).filter(r => r.ben > 0).sort((a, b) => b.ben - a.ben);
+  const rk = document.getElementById('estBenRanking'), top = ranked.slice(0, 8);
+  if(!top.length) rk.innerHTML = '<div class="est-empty">Nenhum contrato com benefício nos itens selecionados.</div>';
+  else {
+    const max = top[0].ben || 1;
+    rk.innerHTML = top.map(r => `
+      <div class="est-barrow" data-nome="${estEsc(r.nome)}" title="${estEsc(r.nome)} — ${fmtCur(r.ben)}">
+        <div class="est-barname">${estEsc(r.nome)}</div>
+        <div class="est-barbg"><div style="width:${(r.ben / max * 100).toFixed(1)}%; height:100%;"><div class="est-seg">
+          ${folhaBen.vt && r.vt > 0 ? `<div style="flex:${r.vt}; background:${EST_PALETTE[0]};"></div>` : ''}
+          ${folhaBen.va && r.va > 0 ? `<div style="flex:${r.va}; background:#4F8A1E;"></div>` : ''}
+        </div></div></div>
+        <div class="est-barval">${fmtCur(r.ben)}</div>
+      </div>`).join('') + `<div class="est-sub" style="margin-top:8px;"><span class="est-swatch" style="background:${EST_PALETTE[0]}; display:inline-block;"></span> VT &nbsp; <span class="est-swatch" style="background:#4F8A1E; display:inline-block;"></span> VA</div>`;
+    rk.querySelectorAll('.est-barrow').forEach(el => el.addEventListener('click', () => {
+      document.getElementById('estBenSearch').value = el.dataset.nome; renderEstBenTable();
+      document.getElementById('estBenTable').scrollIntoView({behavior: 'smooth', block: 'center'});
+    }));
+  }
+
+  // Rosca VT x VA
+  const fatias = [{label: 'Vale-transporte (VT)', value: folhaBen.vt ? totVt : 0, color: EST_PALETTE[0]}, {label: 'Vale-alimentação (VA)', value: folhaBen.va ? totVa : 0, color: '#4F8A1E'}].filter(s => s.value > 0);
+  if(chartInstances.estBenDonut){ chartInstances.estBenDonut.destroy(); delete chartInstances.estBenDonut; }
+  const dn = document.getElementById('estBenDonut'), fTot = fatias.reduce((s, x) => s + x.value, 0);
+  if(!fatias.length){ dn.style.display = 'none'; document.getElementById('estBenLegend').innerHTML = '<div class="est-empty">Sem valores para o gráfico.</div>'; }
+  else {
+    dn.style.display = '';
+    chartInstances.estBenDonut = new Chart(dn, {type: 'doughnut',
+      data: {labels: fatias.map(s => s.label), datasets: [{data: fatias.map(s => s.value), backgroundColor: fatias.map(s => s.color), borderWidth: 0}]},
+      options: {responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: {legend: {display: false}, tooltip: {callbacks: {label: c => ` ${c.label}: ${fmtCur(c.parsed)}`}}}}});
+    document.getElementById('estBenLegend').innerHTML = fatias.map(s => `<div class="est-legend-row"><span class="est-swatch" style="background:${s.color}"></span><span class="est-lname">${estEsc(s.label)}</span><b>${fmtPct(s.value / fTot)}</b></div>`).join('');
+  }
+
+  // Evolução mensal
+  const evo = evoComps.map(c => {
+    const rs = folhaData.resumo.filter(r => r.periodo === v.periodo && folhaCompKey(r) === c && (!contratoKey || r.coligada + '|' + r.codigo_origem === contratoKey));
+    return {vt: rs.reduce((s, r) => s + (r.vale_transporte || 0), 0), va: rs.reduce((s, r) => s + (r.vale_alimentacao || 0), 0)};
+  });
+  if(chartInstances.estBenEvolucao) chartInstances.estBenEvolucao.destroy();
+  chartInstances.estBenEvolucao = new Chart(document.getElementById('estBenEvolucao'), {type: 'bar',
+    data: {labels: evoComps.map(folhaCompLabel), datasets: [
+      ...(folhaBen.vt ? [{label: 'VT', data: evo.map(e => e.vt), backgroundColor: EST_PALETTE[0], borderRadius: 3}] : []),
+      ...(folhaBen.va ? [{label: 'VA', data: evo.map(e => e.va), backgroundColor: '#4F8A1E', borderRadius: 3}] : []),
+    ]},
+    options: {responsive: true, maintainAspectRatio: false,
+      scales: {x: {stacked: true, grid: {display: false}}, y: {stacked: true, beginAtZero: true, ticks: {callback: n => 'R$ ' + (n / 1000).toLocaleString('pt-BR') + 'k'}, grid: {color: '#EEF0F3'}}},
+      plugins: {legend: {position: 'bottom', labels: {boxWidth: 10, font: {size: 11}}}, tooltip: {callbacks: {label: c => ` ${c.dataset.label}: ${fmtCur(c.parsed.y)}`}}}}});
+
+  // Leitura executiva (somente fatos calculados)
+  let txt = `Em ${folhaCompLabel(v.comp)}, ${comDado.length} de ${rows.length} contratos têm benefícios informados, somando ${nome ? fmtCur(totBen) : 'R$ 0,00'}.`;
+  if(nome && top.length >= 3 && totBen > 0) txt += ` Os maiores são ${top.slice(0, 3).map(r => r.nome).join(', ')}, com ${fmtPct(top.slice(0, 3).reduce((s, r) => s + r.ben, 0) / totBen)} do total.`;
+  if(varBen !== null) txt += ` Em relação a ${folhaCompLabel(v.prevComp)}, os benefícios variaram ${folhaFmtVar(varBen)}.`;
+  txt += ' Valores registrados no sistema de folha, que podem não coincidir com o que foi pago aos fornecedores dos benefícios.';
+  document.getElementById('estBenInsight').innerHTML = `<strong>Leitura executiva</strong>${estEsc(txt)}`;
+  document.getElementById('estBenNote').textContent = 'Células sem valor significam informação ausente, não zero confirmado. "Por colaborador" divide o benefício pelos colaboradores do contrato na competência.';
+
+  estBenRows = rows.map(r => {
+    const ben = benSel(r), pv = (folhaBen.vt ? (r.prevVt || 0) : 0) + (folhaBen.va ? (r.prevVa || 0) : 0);
+    return {...r, ben, temDado: benTemDado(r), porColab: r.colab > 0 && benTemDado(r) ? ben / r.colab : null,
+      pctFolha: r.folha > 0 && benTemDado(r) ? ben / r.folha : null, varBen: pv > 0 && benTemDado(r) ? (ben - pv) / pv : null};
+  });
+  const tab = document.querySelector('#estFolhaViewBen .est-table');
+  tab.classList.toggle('est-hide-vt', !folhaBen.vt); tab.classList.toggle('est-hide-va', !folhaBen.va);
+  renderEstBenTable();
+}
+
+function estBenTableRows(){
+  const q = estNorm(document.getElementById('estBenSearch').value);
+  return estBenRows.filter(r => !q || estNorm(r.nome).includes(q)).sort((a, b) => b.ben - a.ben);
+}
+function renderEstBenTable(){
+  const dash = '—', rows = estBenTableRows();
+  document.getElementById('estBenTable').innerHTML = rows.length ? rows.map(r => `<tr style="cursor:default;">
+      <td title="${estEsc(r.nome)}">${estEsc(r.nome)}</td>
+      <td>${r.colab == null ? dash : r.colab}</td>
+      <td class="ben-vt">${r.vt == null ? dash : fmtCur(r.vt)}</td>
+      <td class="ben-va">${r.va == null ? dash : fmtCur(r.va)}</td>
+      <td><b>${r.temDado ? fmtCur(r.ben) : dash}</b></td>
+      <td>${r.porColab == null ? dash : fmtCur(r.porColab)}</td>
+      <td>${r.pctFolha == null ? dash : fmtPct(r.pctFolha)}</td>
+      <td>${folhaFmtVar(r.varBen)}</td>
+      <td><span class="est-pill ${r.temDado ? 'ok' : 'warn'}">${r.temDado ? 'Informado' : 'Não informado'}</span></td>
+    </tr>`).join('') : '<tr><td colspan="9" style="text-align:center; padding:28px; cursor:default;">Nenhum contrato encontrado.</td></tr>';
+}
+function exportEstBenCsv(){
+  if(!folhaView) return;
+  const num = x => x == null ? '' : String(Math.round(x * 100) / 100).replace('.', ',');
+  const cab = ['CONTRATO','COLABORADORES', ...(folhaBen.vt ? ['VT'] : []), ...(folhaBen.va ? ['VA'] : []), 'TOTAL_BENEFICIOS','POR_COLABORADOR','PCT_FOLHA','VARIACAO_MES_%','SITUACAO'];
+  const lines = [cab, ...estBenTableRows().map(r => [r.nome, r.colab ?? '', ...(folhaBen.vt ? [num(r.vt)] : []), ...(folhaBen.va ? [num(r.va)] : []),
+    r.temDado ? num(r.ben) : '', num(r.porColab), r.pctFolha == null ? '' : num(r.pctFolha * 100), r.varBen == null ? '' : num(r.varBen * 100), r.temDado ? 'Informado' : 'Nao informado'])];
+  const csv = '﻿' + lines.map(l => l.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
+  const a = document.createElement('a'); a.href = url; a.download = `beneficios_${folhaView.comp.slice(0, 7)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
 
 function estFolhaTableRows(){
@@ -1815,6 +2001,10 @@ document.getElementById('estFolhaSearch').addEventListener('input', renderEstFol
 document.getElementById('estFolhaFilter').addEventListener('change', renderEstFolhaTable);
 document.getElementById('estFolhaSort').addEventListener('change', renderEstFolhaTable);
 document.getElementById('btnEstFolhaCsv').addEventListener('click', exportEstFolhaCsv);
+document.getElementById('estTabFolha').addEventListener('click', () => { folhaTab = 'folha'; if(folhaData.status === 'ok') estFolhaPaint(); });
+document.getElementById('estTabBen').addEventListener('click', () => { folhaTab = 'ben'; if(folhaData.status === 'ok') estFolhaPaint(); });
+document.getElementById('estBenSearch').addEventListener('input', renderEstBenTable);
+document.getElementById('btnEstBenCsv').addEventListener('click', exportEstBenCsv);
 
 /* ===================== CONTRACT SELECTS (shared helper) ===================== */
 function populateContractSelect(sel, includeAll){
