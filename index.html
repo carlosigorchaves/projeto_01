@@ -512,7 +512,7 @@
           <select id="estFolhaComp"></select>
           <label>Benefícios</label>
           <button type="button" class="est-toggle on" id="estBenVt" aria-pressed="true" title="Mostrar/ocultar VT">VT</button>
-          <button type="button" class="est-toggle on" id="estBenVa" aria-pressed="true" title="Mostrar/ocultar VR">VR</button>
+          <button type="button" class="est-toggle on" id="estBenVa" aria-pressed="true" title="Mostrar/ocultar VA">VA</button>
           <label for="estFolhaContrato">Contrato</label>
           <select id="estFolhaContrato" style="max-width:260px;"></select>
           <span id="estFolhaPeriodoWrap" style="display:none;"><label for="estFolhaPeriodo">Período</label> <select id="estFolhaPeriodo"></select></span>
@@ -572,7 +572,7 @@
           </div>
           <div class="est-scroll">
             <table class="est-table">
-              <thead><tr><th>Contrato</th><th>Colab.</th><th>Folha</th><th>FGTS</th><th>Empréstimos</th><th class="ben-vt">VT</th><th class="ben-va">VR</th><th>Total</th><th>Var. mês</th><th>Situação</th></tr></thead>
+              <thead><tr><th>Contrato</th><th>Colab.</th><th>Folha</th><th>FGTS</th><th>Empréstimos</th><th class="ben-vt">VT</th><th class="ben-va">VA</th><th>Total</th><th>Var. mês</th><th>Situação</th></tr></thead>
               <tbody id="estFolhaBody"></tbody>
             </table>
           </div>
@@ -1643,8 +1643,8 @@ function estFolhaPaint(){
   const benEl = document.getElementById('estFolhaKpisBen');
   const cartoes = [];
   if(folhaBen.vt) cartoes.push(`<div class="kpi-card"><div class="kpi-label">Vale-transporte (VT)</div><div class="kpi-value">${fmtCur(totVt)}</div><div class="est-sub">${rows.filter(r => r.vt != null).length} contrato(s) com VT informado</div></div>`);
-  if(folhaBen.va) cartoes.push(`<div class="kpi-card"><div class="kpi-label">Vale-refeição (VR)</div><div class="kpi-value">${fmtCur(totVa)}</div><div class="est-sub">${rows.filter(r => r.va != null).length} contrato(s) com VR informado</div></div>`);
-  if(folhaBen.vt && folhaBen.va) cartoes.push(`<div class="kpi-card"><div class="kpi-label">Benefícios (VT + VR)</div><div class="kpi-value">${fmtCur(totVt + totVa)}</div><div class="est-sub">${FOLHA_TOTAL_INCLUI_BENEFICIOS ? 'somados ao total registrado' : 'não somados ao total registrado'}</div></div>`);
+  if(folhaBen.va) cartoes.push(`<div class="kpi-card"><div class="kpi-label">Vale-alimentação (VA)</div><div class="kpi-value">${fmtCur(totVa)}</div><div class="est-sub">${rows.filter(r => r.va != null).length} contrato(s) com VA informado</div></div>`);
+  if(folhaBen.vt && folhaBen.va) cartoes.push(`<div class="kpi-card"><div class="kpi-label">Benefícios (VT + VA)</div><div class="kpi-value">${fmtCur(totVt + totVa)}</div><div class="est-sub">${FOLHA_TOTAL_INCLUI_BENEFICIOS ? 'somados ao total registrado' : 'não somados ao total registrado'}</div></div>`);
   benEl.style.display = temBen && cartoes.length ? '' : 'none';
   benEl.style.gridTemplateColumns = `repeat(${Math.max(cartoes.length, 1)},1fr)`;
   benEl.innerHTML = cartoes.join('');
@@ -1782,7 +1782,7 @@ function exportEstFolhaCsv(){
   if(!folhaView) return;
   const rows = estFolhaTableRows();
   const num = x => x === null ? '' : String(Math.round(x * 100) / 100).replace('.', ',');
-  const lines = [['CONTRATO','COLABORADORES','FOLHA','FGTS','EMPRESTIMOS','VT','VR','TOTAL','VARIACAO_MES_%','SITUACAO'],
+  const lines = [['CONTRATO','COLABORADORES','FOLHA','FGTS','EMPRESTIMOS','VT','VA','TOTAL','VARIACAO_MES_%','SITUACAO'],
     ...rows.map(r => [r.nome, r.colab === null ? '' : r.colab, num(r.folha), num(r.fgts), num(r.emp), num(r.vt ?? null), num(r.va ?? null), num(r.total), r.variacao === null ? '' : num(r.variacao * 100), r.informado ? 'Informado' : 'Nao informado'])];
   const drop = [...(folhaBen.vt ? [] : [5]), ...(folhaBen.va ? [] : [6])];  // colunas de benefício não selecionadas
   const csv = '﻿' + lines.map(l => l.filter((_, i) => !drop.includes(i)).map(x => '"' + String(x).replace(/"/g, '""') + '"').join(';')).join('\r\n');
