@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Controle de Gastos - Multi-contrato</title>
+<title>Controle de Gastos — Multi-contrato</title>
 <style>
   :root{
     --brand:#EE6809; --brand-dark:#C2530A; --brand-light:#FDF1E7;
@@ -157,6 +157,74 @@
     .nav-item{border-left:none; border-bottom:3px solid transparent; white-space:nowrap;}
     .nav-item.active{border-bottom-color:#5AA0DA;}
   }
+
+  /* ===== Dashboards Estratégicos ===== */
+  .est-hub{display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:16px; margin-top:6px;}
+  .est-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:22px; cursor:pointer; transition:.15s; display:flex; flex-direction:column; gap:8px; position:relative;}
+  .est-card:hover{border-color:var(--brand); box-shadow:0 6px 18px rgba(36,28,20,.08); transform:translateY(-1px);}
+  .est-card-icon{width:40px; height:40px; border-radius:10px; background:var(--brand-light); color:var(--brand-dark); display:grid; place-items:center; font-size:18px;}
+  .est-card h3{margin:6px 0 0; font-size:15px;}
+  .est-card p{margin:0; font-size:12.5px; color:var(--text-2); line-height:1.55; flex:1;}
+  .est-card-cta{font-size:12px; font-weight:600; color:var(--brand-dark); margin-top:6px;}
+  .est-card.disabled{cursor:default; opacity:.65;}
+  .est-card.disabled:hover{border-color:var(--border); box-shadow:none; transform:none;}
+  .est-badge{position:absolute; top:16px; right:16px; font-size:10px; font-weight:600; background:var(--bg); color:var(--text-2); border:1px solid var(--border); border-radius:20px; padding:3px 8px;}
+  .est-back{display:inline-block; font-size:12px; color:var(--brand-dark); font-weight:600; cursor:pointer; margin-bottom:10px;}
+  .est-back:hover{text-decoration:underline;}
+  .est-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+  .est-tools{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
+  .est-tools label{font-size:12px; color:var(--text-2); font-weight:600;}
+  .est-strips{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px;}
+  .est-strip{background:var(--brand-light); border:1px solid #F4D9BC; border-radius:8px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-2); font-weight:600;}
+  .est-strip strong{font-size:18px; color:var(--text);}
+  .est-strip.alert{background:var(--warn-bg); border-color:#F0DDB0;}
+  .est-strip.alert strong{color:var(--warn);}
+  .est-grid-wide{display:grid; grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr); gap:20px;}
+  .est-sub{font-size:11.5px; color:var(--text-3); margin:3px 0 0;}
+  .est-empty{font-size:12.5px; color:var(--text-3); padding:18px 0; text-align:center;}
+  .est-barrow{display:grid; grid-template-columns:170px 1fr 120px; align-items:center; gap:12px; padding:7px 0; cursor:pointer;}
+  .est-barrow:hover .est-barname{color:var(--brand-dark);}
+  .est-barname{font-size:12px; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .est-barbg{height:12px; background:#F1EEE8; border-radius:4px; overflow:hidden;}
+  .est-barfill{height:100%; background:var(--brand); border-radius:4px;}
+  .est-barfill.over{background:#D0605F;}
+  .est-barval{font-size:12px; text-align:right; font-weight:600; font-variant-numeric:tabular-nums;}
+  .est-legend-row{display:flex; align-items:center; gap:8px; padding:5px 0; font-size:12px; color:var(--text-2);}
+  .est-swatch{width:10px; height:10px; border-radius:2px; flex-shrink:0;}
+  .est-lname{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .est-legend-row b{color:var(--text);}
+  .est-alert{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--border);}
+  .est-alert:last-child{border-bottom:0;}
+  .est-alert-ico{width:28px; height:28px; border-radius:8px; flex-shrink:0; display:grid; place-items:center; font-weight:700; font-size:13px;}
+  .est-alert.danger .est-alert-ico{background:var(--danger-bg); color:var(--danger);}
+  .est-alert.warn .est-alert-ico{background:var(--warn-bg); color:var(--warn);}
+  .est-alert.info .est-alert-ico{background:#E8F0FA; color:#2F5F96;}
+  .est-alert h4{margin:0 0 3px; font-size:12.5px;}
+  .est-alert p{margin:0; font-size:11.5px; color:var(--text-2); line-height:1.55;}
+  .est-insight{background:var(--brand-light); border:1px solid #F4D9BC; border-radius:var(--radius); padding:16px 18px; font-size:12.5px; color:var(--text-2); line-height:1.65; margin-bottom:20px;}
+  .est-insight strong{color:var(--brand-dark); display:block; margin-bottom:4px; font-size:12.5px;}
+  .est-table{width:100%; border-collapse:collapse;}
+  .est-table th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--text-3); padding:10px 12px; border-bottom:1px solid var(--border); background:#FAF9F6; position:sticky; top:0;}
+  .est-table td{padding:10px 12px; font-size:12.5px; border-bottom:1px solid #EFECE6; white-space:nowrap;}
+  .est-table th:not(:first-child), .est-table td:not(:first-child){text-align:right;}
+  .est-table td:first-child{max-width:300px; overflow:hidden; text-overflow:ellipsis;}
+  .est-table tbody tr{cursor:pointer;}
+  .est-table tbody tr:hover td{background:#FDF8F3;}
+  .est-scroll{overflow:auto; max-height:560px;}
+  .est-pill{display:inline-block; font-size:11px; font-weight:600; padding:3px 8px; border-radius:20px;}
+  .est-pill.ok{background:var(--ok-bg); color:var(--ok);}
+  .est-pill.warn{background:var(--warn-bg); color:var(--warn);}
+  .est-pill.danger{background:var(--danger-bg); color:var(--danger);}
+  .est-chip{display:inline-block; font-size:11.5px; color:var(--text-2); background:#fff; border:1px solid var(--border); border-radius:20px; padding:4px 10px;}
+  .est-state{background:#fff; border:1px dashed var(--border); border-radius:var(--radius); padding:36px 24px; text-align:center; color:var(--text-2); font-size:13px; line-height:1.7; margin-bottom:20px;}
+  .est-note{font-size:11.5px; color:var(--text-3); line-height:1.6;}
+  .est-pill.muted{background:#F1EEE8; color:var(--text-2);}
+  .est-neg{color:var(--danger);}
+  @media(max-width:900px){
+    .est-grid-wide{grid-template-columns:1fr;}
+    .est-strips{grid-template-columns:1fr;}
+    .est-barrow{grid-template-columns:110px 1fr 100px;}
+  }
 </style>
 </head>
 <body>
@@ -190,6 +258,7 @@
     </div>
     <div class="nav-item active" data-page="dashboard"><span class="nav-dot"></span> Painel (data de pagamento)</div>
     <div class="nav-item" data-page="dashboard-competencia"><span class="nav-dot"></span> Painel (competência)</div>
+    <div class="nav-item" data-page="estrategicos"><span class="nav-dot"></span> Dashboards Estratégicos</div>
     <div class="nav-item" data-page="lancamentos"><span class="nav-dot"></span> Lançamentos</div>
     <div class="nav-item" data-page="contratos"><span class="nav-dot"></span> Contratos</div>
     <div class="nav-item" data-page="config"><span class="nav-dot"></span> Configurações</div>
@@ -305,6 +374,204 @@
     </div>
 
     <!-- LANÇAMENTOS -->
+    <!-- ===================== DASHBOARDS ESTRATÉGICOS ===================== -->
+    <div class="page" id="page-estrategicos">
+      <h2 class="page-title">Dashboards Estratégicos</h2>
+      <p class="page-sub">Visões consolidadas de todos os contratos para acompanhamento da diretoria. Escolha o painel que deseja abrir.</p>
+      <div class="est-hub">
+        <div class="est-card" data-est-go="est-executivo">
+          <div class="est-card-icon">▦</div>
+          <h3>Visão Executiva</h3>
+          <p>Entradas, gastos, saldo e % do limite de todos os contratos, com ranking dos maiores gastos, distribuição, evolução mensal e alertas de gestão.</p>
+          <span class="est-card-cta">Abrir painel →</span>
+        </div>
+        <div class="est-card" data-est-go="est-contratos">
+          <div class="est-card-icon">▥</div>
+          <h3>Análise por Contrato</h3>
+          <p>Tabela comparativa com busca, filtros e ordenação. Mostra entradas, gasto, saldo e situação de cada contrato, com exportação em CSV.</p>
+          <span class="est-card-cta">Abrir painel →</span>
+        </div>
+        <div class="est-card" data-est-go="est-qualidade">
+          <div class="est-card-icon">◈</div>
+          <h3>Qualidade dos Dados</h3>
+          <p>Pendências a conferir antes de apresentar os números: contratos sem lançamentos, saídas sem categoria, contratos sem limite e lançamentos fora da vigência.</p>
+          <span class="est-card-cta">Abrir painel →</span>
+        </div>
+        <div class="est-card disabled" id="estFolhaCard" data-est-go="est-folha">
+          <span class="est-badge" id="estFolhaBadge">Sem acesso</span>
+          <div class="est-card-icon">⇄</div>
+          <h3>Folha de Pagamento</h3>
+          <p>Folha, FGTS e empréstimos por contrato e competência, com ranking, evolução mensal e alertas. Os dados vêm da consulta do sistema de folha.</p>
+          <span class="est-card-cta">Sem acesso</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-est-executivo">
+      <div class="est-back" data-est-go="estrategicos">← Dashboards Estratégicos</div>
+      <div class="est-head">
+        <div>
+          <h2 class="page-title">Visão Executiva</h2>
+          <p class="page-sub" id="estExecSub"></p>
+        </div>
+        <div class="est-tools">
+          <label for="estMonthExec">Período</label>
+          <select id="estMonthExec"></select>
+        </div>
+      </div>
+      <div class="kpi-row" id="estKpis"></div>
+      <div class="est-strips" id="estStrips"></div>
+      <div class="est-grid-wide">
+        <div class="card">
+          <div class="card-header"><div><p class="card-title">Ranking de contratos por gasto</p><p class="est-sub">Dez maiores no período · clique para abrir o painel do contrato</p></div></div>
+          <div id="estRanking"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div><p class="card-title">Distribuição do gasto</p><p class="est-sub">Participação de cada contrato no gasto total</p></div></div>
+          <div style="position:relative; height:210px;"><canvas id="estDonut"></canvas></div>
+          <div id="estLegend" style="margin-top:12px;"></div>
+        </div>
+      </div>
+      <div class="est-grid-wide">
+        <div class="card">
+          <div class="card-header"><div><p class="card-title">Evolução mensal</p><p class="est-sub">Entradas e gasto de todos os contratos ativos · por data de pagamento</p></div></div>
+          <div style="position:relative; height:260px;"><canvas id="estEvolucao"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div><p class="card-title">Alertas de gestão</p><p class="est-sub">Pontos de atenção no período selecionado</p></div></div>
+          <div id="estAlerts"></div>
+        </div>
+      </div>
+      <div class="est-insight" id="estInsight"></div>
+    </div>
+
+    <div class="page" id="page-est-contratos">
+      <div class="est-back" data-est-go="estrategicos">← Dashboards Estratégicos</div>
+      <h2 class="page-title">Análise por Contrato</h2>
+      <p class="page-sub">Comparativo de todos os contratos ativos. Clique em um contrato para abrir o painel dele.</p>
+      <div class="est-tools">
+        <label for="estMonthCont">Período</label>
+        <select id="estMonthCont"></select>
+        <input type="text" id="estSearch" placeholder="Buscar contrato pelo nome..." style="min-width:240px; flex:1;">
+        <select id="estFilter">
+          <option value="all">Todos os contratos</option>
+          <option value="over">Acima do limite</option>
+          <option value="mov">Com movimento</option>
+          <option value="nomov">Sem movimento</option>
+        </select>
+        <select id="estSort">
+          <option value="gasto">Maior gasto</option>
+          <option value="entradas">Maiores entradas</option>
+          <option value="saldo">Menor saldo</option>
+          <option value="pct">Maior % do limite</option>
+          <option value="name">Nome A–Z</option>
+        </select>
+        <button id="btnEstCsv">Exportar CSV</button>
+      </div>
+      <div class="card" style="padding:0;">
+        <div class="est-scroll">
+          <table class="est-table">
+            <thead><tr><th>Contrato</th><th>Entradas</th><th>Gasto</th><th>Saldo</th><th>Limite</th><th>% do limite</th><th>Situação</th></tr></thead>
+            <tbody id="estTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <p class="est-sub" id="estTableNote"></p>
+    </div>
+
+    <div class="page" id="page-est-qualidade">
+      <div class="est-back" data-est-go="estrategicos">← Dashboards Estratégicos</div>
+      <h2 class="page-title">Qualidade dos Dados</h2>
+      <p class="page-sub">Pendências a conferir antes de apresentar os números. Considera todos os lançamentos de cada contrato ativo.</p>
+      <div class="kpi-row" id="estQKpis"></div>
+      <div class="card" style="padding:0;">
+        <div style="padding:18px 20px 6px;"><p class="card-title">Pendências por contrato</p><p class="est-sub">Clique em um contrato para abrir os lançamentos dele</p></div>
+        <div class="est-scroll">
+          <table class="est-table">
+            <thead><tr><th>Contrato</th><th>Lançamentos</th><th>Saídas sem categoria</th><th>Valor sem categoria</th><th>Fora da vigência</th><th>Limite cadastrado</th></tr></thead>
+            <tbody id="estQBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <p class="est-sub">Transferências internas (ex.: poupança) não entram em "saídas sem categoria", pois não são despesa.</p>
+    </div>
+
+    <!-- ===================== DASHBOARD: FOLHA DE PAGAMENTO ===================== -->
+    <div class="page" id="page-est-folha">
+      <div class="est-back" data-est-go="estrategicos">← Dashboards Estratégicos</div>
+      <div class="est-head">
+        <div>
+          <h2 class="page-title">Folha de Pagamento</h2>
+          <p class="page-sub" id="estFolhaSub">Valores por contrato e competência, carregados do sistema de folha.</p>
+        </div>
+        <div class="est-tools">
+          <label for="estFolhaComp">Competência</label>
+          <select id="estFolhaComp"></select>
+          <span id="estFolhaPeriodoWrap" style="display:none;"><label for="estFolhaPeriodo">Período</label> <select id="estFolhaPeriodo"></select></span>
+          <button id="btnEstFolhaReload" title="Buscar os dados novamente">Atualizar</button>
+        </div>
+      </div>
+      <div style="margin:-6px 0 16px;"><span class="est-chip" id="estFolhaUpdated">Atualização: —</span></div>
+
+      <div id="estFolhaState" class="est-state"></div>
+
+      <div id="estFolhaContent" style="display:none;">
+        <div class="kpi-row" id="estFolhaKpis"></div>
+        <div class="est-strips" id="estFolhaStrips"></div>
+
+        <div class="est-grid-wide">
+          <div class="card">
+            <div class="card-header"><div><p class="card-title">Ranking financeiro por contrato</p><p class="est-sub">Oito maiores · clique para localizar na tabela</p></div></div>
+            <div id="estFolhaRanking"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div><p class="card-title">Composição financeira</p><p class="est-sub">Distribuição dos valores da competência</p></div></div>
+            <div style="position:relative; height:200px;"><canvas id="estFolhaDonut"></canvas></div>
+            <div id="estFolhaLegend" style="margin-top:12px;"></div>
+          </div>
+        </div>
+
+        <div class="est-grid-wide">
+          <div class="card">
+            <div class="card-header"><div><p class="card-title">Evolução mensal</p><p class="est-sub">Valores registrados por competência (período selecionado)</p></div></div>
+            <div style="position:relative; height:250px;"><canvas id="estFolhaEvolucao"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div><p class="card-title">Alertas de gestão</p><p class="est-sub">Pontos de conferência. Valor alto não é erro</p></div></div>
+            <div id="estFolhaAlerts"></div>
+          </div>
+        </div>
+
+        <div class="est-insight" id="estFolhaInsight"></div>
+
+        <div class="card" style="padding:0;">
+          <div style="padding:18px 20px 4px;"><p class="card-title">Detalhamento dos contratos</p><p class="est-sub">Pesquise, filtre e classifique os valores por contrato</p></div>
+          <div class="est-tools" style="padding:10px 20px 0; margin-bottom:10px;">
+            <input type="text" id="estFolhaSearch" placeholder="Buscar contrato..." style="min-width:220px; flex:1;">
+            <select id="estFolhaFilter">
+              <option value="all">Todos os contratos</option>
+              <option value="com">Com folha</option>
+              <option value="sem">Sem folha</option>
+            </select>
+            <select id="estFolhaSort">
+              <option value="total">Maior valor</option>
+              <option value="folha">Maior folha</option>
+              <option value="var">Maior variação</option>
+              <option value="name">Nome A–Z</option>
+            </select>
+            <button id="btnEstFolhaCsv">Exportar CSV</button>
+          </div>
+          <div class="est-scroll">
+            <table class="est-table">
+              <thead><tr><th>Contrato</th><th>Colab.</th><th>Folha</th><th>FGTS</th><th>Empréstimos</th><th>Total</th><th>Var. mês</th><th>Situação</th></tr></thead>
+              <tbody id="estFolhaBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <p class="est-note" id="estFolhaNote" style="margin-top:12px;"></p>
+      </div>
+    </div>
+
     <div class="page" id="page-lancamentos">
       <h2 class="page-title">Lançamentos</h2>
       <p class="page-sub">Pagamentos e recebimentos de cada contrato, com a categoria do respectivo Anexo V.</p>
@@ -597,6 +864,7 @@ const MODULES = [
   {id:'contratos', label:'Contratos', levels:['none','view','edit','excluir']},
   {id:'usuarios', label:'Usuários', levels:['none','view','edit','excluir']},
   {id:'config', label:'Configurações', levels:['none','view','edit','excluir']},
+  {id:'folha', label:'Folha de Pagamento', levels:['none','view']},
 ];
 const LEVEL_LABELS = {none:'Sem acesso', view:'Visualizar', edit:'Editar', excluir:'Excluir'};
 const LEVEL_RANK = {none:0, view:1, edit:2, excluir:3};
@@ -853,9 +1121,12 @@ function statusClass(pct){ if(pct < 0.7) return 'ok'; if(pct <= 1.0) return 'war
 
 /* ===================== NAV ===================== */
 function goToPage(pageName){
+  // subtelas dos Dashboards Estratégicos (est-*) mantêm o item do menu "estrategicos" ativo
+  if(pageName === 'est-folha' && !hasAccess('folha','view')) return; // módulo não liberado no perfil
+  const navKey = pageName.startsWith('est-') ? 'estrategicos' : pageName;
   document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const navItem = document.querySelector(`.nav-item[data-page="${pageName}"]`);
+  const navItem = document.querySelector(`.nav-item[data-page="${navKey}"]`);
   if(navItem && navItem.style.display === 'none') return; // sem acesso a esse módulo
   if(navItem) navItem.classList.add('active');
   document.getElementById('page-' + pageName).classList.add('active');
@@ -865,6 +1136,12 @@ function goToPage(pageName){
   // pra garantir que o gráfico apareça corretamente.
   if(pageName === 'dashboard') renderDashboard();
   if(pageName === 'dashboard-competencia') renderDashboardCompetencia();
+  if(pageName === 'est-executivo') renderEstExecutivo();
+  if(pageName === 'est-contratos') renderEstContratos();
+  if(pageName === 'est-qualidade') renderEstQualidade();
+  if(pageName === 'est-folha') renderEstFolha();
+  if(pageName === 'estrategicos') estUpdateHub();
+  if(pageName.startsWith('est')) window.scrollTo(0, 0);
 }
 
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -875,10 +1152,12 @@ function applyNavPermissions(){
   const navMap = {
     dashboard: hasAccess('painel', 'view'),
     'dashboard-competencia': hasAccess('painel', 'view'),
+    estrategicos: hasAccess('painel', 'view'),
     lancamentos: hasAccess('lancamentos', 'view'),
     contratos: hasAccess('contratos', 'view'),
     config: hasAccess('usuarios', 'view') || hasAccess('config', 'view'),
   };
+  if(typeof estUpdateHub === 'function') estUpdateHub();
   let firstVisible = null;
   Object.entries(navMap).forEach(([page, visible]) => {
     const navItem = document.querySelector(`.nav-item[data-page="${page}"]`);
@@ -918,6 +1197,583 @@ function goToLancamentosFiltered(contractId, month, catCode){
   document.getElementById('filterDirection').value = '';
   renderLancamentos();
 }
+
+/* ===================== DASHBOARDS ESTRATÉGICOS ===================== */
+const EST_ATTENTION_PCT = 0.85; // a partir deste % do limite o contrato entra em "Atenção"
+const EST_PALETTE = ['#EE6809','#C2530A','#F4A261','#8C6D4F','#B7A58F','#D9CBB8','#E8E1D6'];
+const estEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const estNorm = s => (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+function estMonthValue(selId){
+  const sel = document.getElementById(selId);
+  if(!sel.options.length) populateMonthSelect(sel, true);
+  return sel.value === 'all' ? 'all' : parseInt(sel.value, 10);
+}
+
+function estPeriodShort(month){
+  return month === 'all' ? 'todo o período' : `${MESES[month-1]}/2026`;
+}
+
+function estPeriodLabel(month){
+  return month === 'all' ? 'todo o período (limite anual = 12 × limite mensal)' : `${MESES[month-1]}/2026`;
+}
+
+// Uma linha por contrato ativo, no período escolhido.
+function estContractRows(month){
+  const isAll = month === 'all';
+  return contracts.filter(ct => ct.active !== false).map(ct => {
+    let limite = catsFor(ct.id).reduce((s,c) => s + c.limit, 0) * (isAll ? 12 : 1);
+    if(!isAll){
+      const f = startMonthProrationFactor(ct, month);
+      if(f !== null) limite *= f;
+    }
+    const gasto = Object.values(spentByCategory(ct.id, month)).reduce((s,v) => s + v, 0);
+    const entradas = totalEntradas(ct.id, month);
+    const mov = transactions.filter(t => t.contractId === ct.id && (isAll || monthOf(t.date) === month)).length;
+    return {id: ct.id, nome: ct.name, entradas, gasto, saldo: entradas - gasto, limite, pct: limite ? gasto / limite : null, mov};
+  });
+}
+
+function estStatus(r){
+  if(r.mov === 0) return {cls:'muted', label:'Sem movimento'};
+  if(r.pct === null) return {cls:'muted', label:'Sem limite'};
+  if(r.pct > 1) return {cls:'danger', label:'Acima do limite'};
+  if(r.pct >= EST_ATTENTION_PCT) return {cls:'warn', label:'Atenção'};
+  return {cls:'ok', label:'Dentro do limite'};
+}
+
+function estOpenContract(id, month){
+  const sel = document.getElementById('dashContract');
+  if(sel) sel.value = id;
+  const mSel = document.getElementById('monthSelect');
+  if(mSel && month !== undefined){
+    const v = month === 'all' ? 'all' : String(month);
+    if([...mSel.options].some(o => o.value === v)) mSel.value = v;
+  }
+  goToPage('dashboard');
+}
+
+/* ---------- Visão Executiva ---------- */
+function renderEstExecutivo(){
+  const month = estMonthValue('estMonthExec');
+  const rows = estContractRows(month);
+  const totEntradas = rows.reduce((s,r) => s + r.entradas, 0);
+  const totGasto = rows.reduce((s,r) => s + r.gasto, 0);
+  const totLimite = rows.reduce((s,r) => s + r.limite, 0);
+  const gastoComLimite = rows.filter(r => r.limite > 0).reduce((s,r) => s + r.gasto, 0);
+  const saldo = totEntradas - totGasto;
+  const pct = totLimite ? gastoComLimite / totLimite : 0;
+  const comMov = rows.filter(r => r.mov > 0).length;
+  const semMov = rows.length - comMov;
+
+  document.getElementById('estExecSub').textContent = `${rows.length} contrato(s) ativo(s) · ${estPeriodLabel(month)}`;
+
+  document.getElementById('estKpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Total de entradas</div><div class="kpi-value ok">${fmtCur(totEntradas)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Gasto categorizado</div><div class="kpi-value">${fmtCur(totGasto)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Saldo disponível (entradas − gasto)</div><div class="kpi-value ${saldo < 0 ? 'danger' : 'ok'}">${fmtCur(saldo)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">% do limite utilizado</div><div class="kpi-value ${pct > 1 ? 'danger' : ''}">${fmtPct(pct)}</div><div class="est-sub">sobre ${fmtCur(totLimite)} de limite</div></div>
+  `;
+
+  document.getElementById('estStrips').innerHTML = `
+    <div class="est-strip"><span>Contratos ativos</span><strong>${rows.length}</strong></div>
+    <div class="est-strip"><span>Com lançamentos no período</span><strong>${comMov}</strong></div>
+    <div class="est-strip alert"><span>Sem lançamentos no período</span><strong>${semMov}</strong></div>
+  `;
+
+  // Ranking (10 maiores gastos)
+  const ranked = rows.filter(r => r.gasto > 0).sort((a,b) => b.gasto - a.gasto);
+  const top = ranked.slice(0, 10);
+  const rankEl = document.getElementById('estRanking');
+  if(!top.length){
+    rankEl.innerHTML = '<div class="est-empty">Nenhum gasto categorizado no período.</div>';
+  } else {
+    const max = top[0].gasto;
+    rankEl.innerHTML = top.map(r => `
+      <div class="est-barrow" data-id="${estEsc(r.id)}" title="${estEsc(r.nome)} — ${fmtCur(r.gasto)}">
+        <div class="est-barname">${estEsc(r.nome)}</div>
+        <div class="est-barbg"><div class="est-barfill ${r.pct !== null && r.pct > 1 ? 'over' : ''}" style="width:${(r.gasto / max * 100).toFixed(1)}%"></div></div>
+        <div class="est-barval">${fmtCur(r.gasto)}</div>
+      </div>`).join('');
+    rankEl.querySelectorAll('.est-barrow').forEach(el => el.addEventListener('click', () => estOpenContract(el.dataset.id, month)));
+  }
+
+  // Distribuição (rosca): 6 maiores + demais
+  const slices = ranked.slice(0, 6).map(r => ({label: r.nome, value: r.gasto}));
+  const others = ranked.slice(6).reduce((s,r) => s + r.gasto, 0);
+  if(others > 0) slices.push({label: 'Demais contratos', value: others});
+  if(chartInstances.estDonut){ chartInstances.estDonut.destroy(); delete chartInstances.estDonut; }
+  const legendEl = document.getElementById('estLegend');
+  const donutCanvas = document.getElementById('estDonut');
+  if(!slices.length){
+    donutCanvas.style.display = 'none';
+    legendEl.innerHTML = '<div class="est-empty">Sem dados para o gráfico.</div>';
+  } else {
+    donutCanvas.style.display = '';
+    chartInstances.estDonut = new Chart(donutCanvas, {
+      type: 'doughnut',
+      data: {labels: slices.map(s => s.label), datasets: [{data: slices.map(s => s.value), backgroundColor: slices.map((_,i) => EST_PALETTE[i % EST_PALETTE.length]), borderWidth: 0}]},
+      options: {responsive: true, maintainAspectRatio: false, cutout: '62%',
+        plugins: {legend: {display: false}, tooltip: {callbacks: {label: c => ` ${c.label}: ${fmtCur(c.parsed)}`}}}}
+    });
+    const tot = slices.reduce((s,x) => s + x.value, 0);
+    legendEl.innerHTML = slices.map((s,i) => `
+      <div class="est-legend-row"><span class="est-swatch" style="background:${EST_PALETTE[i % EST_PALETTE.length]}"></span><span class="est-lname" title="${estEsc(s.label)}">${estEsc(s.label)}</span><b>${fmtPct(s.value / tot)}</b></div>`).join('');
+  }
+
+  // Evolução mensal (ano todo, contratos ativos)
+  const codes = {};
+  rows.forEach(r => { codes[r.id] = new Set(catsFor(r.id).map(c => c.code)); });
+  const ent = Array(12).fill(0), gas = Array(12).fill(0);
+  transactions.forEach(tx => {
+    if(!codes[tx.contractId]) return;
+    const m = monthOf(tx.date) - 1;
+    if(m < 0 || m > 11) return;
+    if(tx.direction === 'ENTRADA') ent[m] += tx.value;
+    else if(tx.direction === 'SAIDA' && tx.cat && codes[tx.contractId].has(tx.cat)) gas[m] += tx.value;
+  });
+  if(chartInstances.estEvolucao) chartInstances.estEvolucao.destroy();
+  chartInstances.estEvolucao = new Chart(document.getElementById('estEvolucao'), {
+    type: 'bar',
+    data: {labels: MESES.map(m => m.slice(0,3)), datasets: [
+      {label: 'Entradas', data: ent, backgroundColor: '#4F8A1E', borderRadius: 4},
+      {label: 'Gasto', data: gas, backgroundColor: '#EE6809', borderRadius: 4},
+    ]},
+    options: {responsive: true, maintainAspectRatio: false,
+      scales: {y: {beginAtZero: true, ticks: {callback: v => 'R$ ' + (v / 1000).toLocaleString('pt-BR') + 'k'}, grid: {color: '#EEF0F3'}}, x: {grid: {display: false}}},
+      plugins: {legend: {position: 'bottom', labels: {boxWidth: 10, font: {size: 11}}}, tooltip: {callbacks: {label: c => ` ${c.dataset.label}: ${fmtCur(c.parsed.y)}`}}}}
+  });
+
+  // Alertas
+  const names = list => list.slice(0, 3).map(r => r.nome).join(', ') + (list.length > 3 ? ` e mais ${list.length - 3}` : '');
+  const alerts = [];
+  const over = rows.filter(r => r.pct !== null && r.pct > 1).sort((a,b) => b.pct - a.pct);
+  if(over.length) alerts.push({tone: 'danger', ico: '!', title: `${over.length} contrato(s) acima do limite`, text: `${names(over)}. O maior: ${fmtPct(over[0].pct)} do limite.`});
+  const attention = rows.filter(r => r.pct !== null && r.pct >= EST_ATTENTION_PCT && r.pct <= 1);
+  if(attention.length) alerts.push({tone: 'warn', ico: '!', title: `${attention.length} contrato(s) entre ${fmtPct(EST_ATTENTION_PCT)} e 100% do limite`, text: names(attention) + '.'});
+  const negative = rows.filter(r => r.mov > 0 && r.saldo < 0);
+  if(negative.length) alerts.push({tone: 'warn', ico: '!', title: `${negative.length} contrato(s) com gasto maior que as entradas`, text: `${names(negative)}. Pode ser diferença de data entre recebimento e pagamento.`});
+  if(totGasto > 0 && ranked.length >= 3){
+    const share = ranked.slice(0, 3).reduce((s,r) => s + r.gasto, 0) / totGasto;
+    alerts.push({tone: 'info', ico: 'i', title: 'Concentração do gasto', text: `Os três maiores contratos representam ${fmtPct(share)} do gasto categorizado.`});
+  }
+  if(semMov > 0) alerts.push({tone: 'info', ico: 'i', title: `${semMov} contrato(s) sem lançamentos`, text: 'Confirme se estão sem movimento ou se os dados ainda não foram lançados.'});
+  document.getElementById('estAlerts').innerHTML = alerts.length
+    ? alerts.map(a => `<div class="est-alert ${a.tone}"><div class="est-alert-ico">${a.ico}</div><div><h4>${estEsc(a.title)}</h4><p>${estEsc(a.text)}</p></div></div>`).join('')
+    : '<div class="est-empty">Nenhum alerta no período.</div>';
+
+  // Leitura executiva (somente fatos calculados)
+  let txt = `No período (${estPeriodShort(month)}), os contratos ativos somam ${fmtCur(totEntradas)} em entradas e ${fmtCur(totGasto)} em gasto categorizado, com saldo de ${fmtCur(saldo)}.`;
+  if(ranked.length >= 3) txt += ` Os três maiores gastos (${ranked.slice(0,3).map(r => r.nome).join(', ')}) concentram ${fmtPct(ranked.slice(0,3).reduce((s,r) => s + r.gasto, 0) / totGasto)} do total.`;
+  txt += over.length ? ` ${over.length} contrato(s) ultrapassaram o limite do período.` : ' Nenhum contrato ultrapassou o limite do período.';
+  txt += ' O gasto categorizado exclui transferências internas e saídas sem categoria.';
+  document.getElementById('estInsight').innerHTML = `<strong>Leitura executiva</strong>${estEsc(txt)}`;
+}
+
+/* ---------- Análise por Contrato ---------- */
+function estFilteredRows(){
+  const month = estMonthValue('estMonthCont');
+  const q = estNorm(document.getElementById('estSearch').value);
+  const f = document.getElementById('estFilter').value;
+  const sort = document.getElementById('estSort').value;
+  const rows = estContractRows(month)
+    .filter(r => !q || estNorm(r.nome).includes(q))
+    .filter(r => f === 'all' || (f === 'over' && r.pct !== null && r.pct > 1) || (f === 'mov' && r.mov > 0) || (f === 'nomov' && r.mov === 0));
+  rows.sort((a,b) => {
+    if(sort === 'name') return a.nome.localeCompare(b.nome, 'pt-BR');
+    if(sort === 'saldo') return a.saldo - b.saldo;
+    if(sort === 'pct') return (b.pct === null ? -1 : b.pct) - (a.pct === null ? -1 : a.pct);
+    return b[sort] - a[sort];
+  });
+  return {month, rows};
+}
+
+function renderEstContratos(){
+  const {month, rows} = estFilteredRows();
+  const body = document.getElementById('estTableBody');
+  body.innerHTML = rows.length ? rows.map(r => {
+    const st = estStatus(r);
+    return `<tr data-id="${estEsc(r.id)}">
+      <td title="${estEsc(r.nome)}">${estEsc(r.nome)}</td>
+      <td>${fmtCur(r.entradas)}</td>
+      <td><b>${fmtCur(r.gasto)}</b></td>
+      <td class="${r.saldo < 0 ? 'est-neg' : ''}">${fmtCur(r.saldo)}</td>
+      <td>${r.limite ? fmtCur(r.limite) : '—'}</td>
+      <td>${r.pct === null ? '—' : fmtPct(r.pct)}</td>
+      <td><span class="est-pill ${st.cls}">${st.label}</span></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="7" style="text-align:center; padding:28px; cursor:default;">Nenhum contrato encontrado.</td></tr>';
+  body.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => estOpenContract(tr.dataset.id, month)));
+  document.getElementById('estTableNote').textContent = `${rows.length} contrato(s) · ${estPeriodLabel(month)}. Gasto = saídas categorizadas; saldo = entradas − gasto.`;
+}
+
+function exportEstCsv(){
+  const {month, rows} = estFilteredRows();
+  const num = v => String(Math.round(v * 100) / 100).replace('.', ',');
+  const lines = [['CONTRATO','ENTRADAS','GASTO','SALDO','LIMITE','% DO LIMITE','SITUACAO'],
+    ...rows.map(r => [r.nome, num(r.entradas), num(r.gasto), num(r.saldo), r.limite ? num(r.limite) : '', r.pct === null ? '' : num(r.pct * 100), estStatus(r).label])];
+  const csv = '﻿' + lines.map(l => l.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `contratos_${month === 'all' ? 'todo_periodo' : 'mes_' + month}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* ---------- Qualidade dos Dados ---------- */
+function renderEstQualidade(){
+  const active = contracts.filter(ct => ct.active !== false);
+  const rows = active.map(ct => {
+    const txs = transactions.filter(t => t.contractId === ct.id);
+    const semCat = txs.filter(t => t.direction === 'SAIDA' && !t.cat && !isTransfer(t));
+    const foraVig = txs.filter(t => isDateBeyondValidity(ct.id, t.date)).length;
+    const semLimite = catsFor(ct.id).reduce((s,c) => s + c.limit, 0) === 0;
+    return {id: ct.id, nome: ct.name, lanc: txs.length, semCatQtd: semCat.length, semCatVal: semCat.reduce((s,t) => s + t.value, 0), foraVig, semLimite};
+  });
+  const semLanc = rows.filter(r => r.lanc === 0).length;
+  const semCatQtd = rows.reduce((s,r) => s + r.semCatQtd, 0);
+  const semCatVal = rows.reduce((s,r) => s + r.semCatVal, 0);
+  const semLimite = rows.filter(r => r.semLimite).length;
+  const foraVig = rows.reduce((s,r) => s + r.foraVig, 0);
+
+  document.getElementById('estQKpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Contratos sem lançamentos</div><div class="kpi-value ${semLanc ? 'danger' : 'ok'}">${semLanc}</div><div class="est-sub">de ${rows.length} contratos ativos</div></div>
+    <div class="kpi-card"><div class="kpi-label">Saídas sem categoria</div><div class="kpi-value ${semCatQtd ? 'danger' : 'ok'}">${semCatQtd}</div><div class="est-sub">${fmtCur(semCatVal)} sem classificação</div></div>
+    <div class="kpi-card"><div class="kpi-label">Contratos sem limite cadastrado</div><div class="kpi-value ${semLimite ? 'danger' : 'ok'}">${semLimite}</div><div class="est-sub">sem itens/limites no Anexo V</div></div>
+    <div class="kpi-card"><div class="kpi-label">Lançamentos fora da vigência</div><div class="kpi-value ${foraVig ? 'danger' : 'ok'}">${foraVig}</div><div class="est-sub">data após o fim do contrato</div></div>
+  `;
+
+  const pend = rows.filter(r => r.lanc === 0 || r.semCatQtd > 0 || r.foraVig > 0 || r.semLimite)
+    .sort((a,b) => b.semCatVal - a.semCatVal || a.nome.localeCompare(b.nome, 'pt-BR'));
+  const body = document.getElementById('estQBody');
+  body.innerHTML = pend.length ? pend.map(r => `<tr data-id="${estEsc(r.id)}">
+      <td title="${estEsc(r.nome)}">${estEsc(r.nome)}</td>
+      <td>${r.lanc === 0 ? '<span class="est-pill muted">Nenhum</span>' : r.lanc}</td>
+      <td>${r.semCatQtd || '—'}</td>
+      <td class="${r.semCatVal ? 'est-neg' : ''}">${r.semCatVal ? fmtCur(r.semCatVal) : '—'}</td>
+      <td>${r.foraVig || '—'}</td>
+      <td><span class="est-pill ${r.semLimite ? 'warn' : 'ok'}">${r.semLimite ? 'Não' : 'Sim'}</span></td>
+    </tr>`).join('') : '<tr><td colspan="6" style="text-align:center; padding:28px; cursor:default;">Nenhuma pendência encontrada.</td></tr>';
+  body.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => goToLancamentosFiltered(tr.dataset.id, 'all', null)));
+}
+
+/* ---------- Eventos ---------- */
+document.querySelectorAll('[data-est-go]').forEach(el => el.addEventListener('click', () => goToPage(el.dataset.estGo)));
+document.getElementById('estMonthExec').addEventListener('change', renderEstExecutivo);
+document.getElementById('estMonthCont').addEventListener('change', renderEstContratos);
+document.getElementById('estSearch').addEventListener('input', renderEstContratos);
+document.getElementById('estFilter').addEventListener('change', renderEstContratos);
+document.getElementById('estSort').addEventListener('change', renderEstContratos);
+document.getElementById('btnEstCsv').addEventListener('click', exportEstCsv);
+
+/* ===================== DASHBOARD DE FOLHA (dados do ERP, carregados no Supabase) ===================== */
+// Regras configuráveis (confirmar com o DP / Financeiro):
+const FOLHA_TOTAL_INCLUI_EMPRESTIMOS = true;  // true = igual à planilha de referência (folha + FGTS + empréstimos)
+const FOLHA_ALERTA_VARIACAO = 0.20;           // variação mensal a partir da qual a unidade entra em "a conferir"
+
+let folhaData = {status:'idle', resumo:[], unidades:[], ultimaCarga:null, erro:null};
+let folhaView = null;
+
+async function sbSelectAllPaged(table, orderCols){
+  // O Supabase devolve no máximo 1000 linhas por consulta: busca em páginas.
+  const out = [], size = 1000;
+  for(let from = 0; ; from += size){
+    let q = sb.from(table).select('*');
+    (orderCols || []).forEach(c => { q = q.order(c, {ascending: false}); });
+    const { data, error } = await q.range(from, from + size - 1);
+    if(error) throw error;
+    out.push(...(data || []));
+    if(!data || data.length < size) break;
+  }
+  return out;
+}
+
+async function loadFolha(force){
+  if(!force && (folhaData.status === 'ok' || folhaData.status === 'empty')) return;
+  folhaData = {...folhaData, status:'loading', erro:null};
+  try{
+    const [resumo, unidades, cargas] = await Promise.all([
+      sbSelectAllPaged('folha_resumo', ['competencia','codigo_origem']),
+      sbSelectAllPaged('folha_unidades', ['codigo_origem']),
+      sb.from('folha_cargas').select('*').eq('status','concluida').order('finalizada_em', {ascending:false}).limit(1),
+    ]);
+    if(cargas.error) throw cargas.error;
+    const num = v => (v === null || v === undefined) ? null : Number(v);
+    folhaData = {
+      status: resumo.length ? 'ok' : 'empty', erro: null,
+      ultimaCarga: (cargas.data && cargas.data[0]) || null,
+      unidades,
+      resumo: resumo.map(r => ({...r,
+        qtd_colaboradores: num(r.qtd_colaboradores), proventos: num(r.proventos), descontos: num(r.descontos),
+        liquido: num(r.liquido), valor_folha: num(r.valor_folha), fgts: num(r.fgts), emprestimos: num(r.emprestimos)})),
+    };
+  }catch(e){
+    console.error('Falha ao carregar folha:', e);
+    const msg = String((e && (e.message || e.code)) || e);
+    const missing = e && (e.code === '42P01' || e.code === 'PGRST205' || /does not exist|schema cache/i.test(msg));
+    folhaData = {status: missing ? 'missing' : 'error', erro: msg, resumo:[], unidades:[], ultimaCarga:null};
+  }
+}
+
+const folhaCompKey = r => String(r.competencia).slice(0, 10);
+const folhaCompLabel = iso => { const [y, m] = iso.split('-'); return `${MESES[parseInt(m, 10) - 1]}/${y}`; };
+const folhaFmtVar = v => v === null ? '—' : (v > 0 ? '▲ ' : v < 0 ? '▼ ' : '') + fmtPct(Math.abs(v));
+const folhaTotalOf = (folha, fgts, emp) => (folha || 0) + (fgts || 0) + (FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? (emp || 0) : 0);
+
+function estFillSelect(sel, values, labelFn){
+  const prev = sel.value;
+  const same = [...sel.options].map(o => o.value).join('|') === values.join('|');
+  if(same) return;
+  sel.innerHTML = values.map(v => `<option value="${estEsc(v)}">${estEsc(labelFn(v))}</option>`).join('');
+  if(values.includes(prev)) sel.value = prev;
+}
+
+// Monta as linhas (uma por contrato/unidade) da competência e período escolhidos.
+function folhaBuildView(comp, periodo){
+  const unidMap = new Map(folhaData.unidades.map(u => [u.coligada + '|' + u.codigo_origem, u]));
+  const nomeDe = (col, cod) => { const u = unidMap.get(col + '|' + cod); return (u && (u.nome_gerencial || u.descricao_origem)) || cod; };
+
+  const doPeriodo = folhaData.resumo.filter(r => r.periodo === periodo);
+  const atual = doPeriodo.filter(r => folhaCompKey(r) === comp);
+  const comps = [...new Set(doPeriodo.map(folhaCompKey))].sort();
+  const prevComp = comps.filter(c => c < comp).pop() || null;
+  const prevMap = new Map();
+  doPeriodo.filter(r => prevComp && folhaCompKey(r) === prevComp)
+    .forEach(r => prevMap.set(r.coligada + '|' + r.codigo_origem, folhaTotalOf(r.valor_folha, r.fgts, r.emprestimos)));
+
+  const rows = new Map();
+  folhaData.unidades.filter(u => u.ativo !== false).forEach(u => {
+    const key = u.coligada + '|' + u.codigo_origem;
+    rows.set(key, {key, nome: nomeDe(u.coligada, u.codigo_origem), cadastrada: true, temLinha: false, folha: null, fgts: null, emp: null, colab: null, total: 0, baseFolha: null});
+  });
+  atual.forEach(r => {
+    const key = r.coligada + '|' + r.codigo_origem;
+    const base = rows.get(key) || {key, nome: nomeDe(r.coligada, r.codigo_origem), cadastrada: unidMap.has(key)};
+    rows.set(key, {...base, temLinha: true, folha: r.valor_folha, fgts: r.fgts, emp: r.emprestimos, colab: r.qtd_colaboradores,
+      total: folhaTotalOf(r.valor_folha, r.fgts, r.emprestimos), baseFolha: r.base_folha});
+  });
+  const list = [...rows.values()].map(r => {
+    const prev = prevMap.get(r.key);
+    return {...r, informado: r.temLinha && r.folha !== null, variacao: (prev && prev > 0 && r.temLinha) ? (r.total - prev) / prev : null};
+  });
+  const prevTotal = prevComp ? [...prevMap.values()].reduce((s, v) => s + v, 0) : null;
+  const atualizadoEm = atual.map(r => r.atualizado_em).filter(Boolean).sort().pop() || (folhaData.ultimaCarga && folhaData.ultimaCarga.finalizada_em) || null;
+  return {comp, periodo, rows: list, prevComp, prevTotal, comps, atualizadoEm};
+}
+
+function estFolhaState(html){
+  document.getElementById('estFolhaState').style.display = html ? '' : 'none';
+  document.getElementById('estFolhaState').innerHTML = html || '';
+  document.getElementById('estFolhaContent').style.display = html ? 'none' : '';
+}
+
+function renderEstFolha(){
+  estFolhaState('Carregando dados da folha...');
+  loadFolha(false).then(estFolhaPaint);
+}
+
+function estFolhaPaint(){
+  const st = folhaData.status;
+  const chip = document.getElementById('estFolhaUpdated');
+  if(st === 'missing'){ chip.textContent = 'Atualização: —'; return estFolhaState('<b>As tabelas de folha ainda não existem neste projeto.</b><br>Rode a migração <code>001_folha_base.sql</code> no Supabase e clique em Atualizar.'); }
+  if(st === 'error'){ chip.textContent = 'Atualização: —'; return estFolhaState(`<b>Não foi possível carregar os dados de folha.</b><br>${estEsc(folhaData.erro)}<br>Verifique se o seu perfil tem acesso ao módulo Folha de Pagamento.`); }
+  if(st === 'empty' || !folhaData.resumo.length){ chip.textContent = 'Atualização: —'; return estFolhaState('<b>Ainda não há dados de folha.</b><br>Assim que a consulta do sistema de folha fizer a primeira carga, os painéis aparecem aqui.'); }
+  if(st !== 'ok') return;
+
+  const comps = [...new Set(folhaData.resumo.map(folhaCompKey))].sort().reverse();
+  const periodos = [...new Set(folhaData.resumo.map(r => r.periodo))].sort();
+  const compSel = document.getElementById('estFolhaComp'), perSel = document.getElementById('estFolhaPeriodo');
+  estFillSelect(compSel, comps, folhaCompLabel);
+  const hadPeriodo = perSel.options.length > 0;
+  estFillSelect(perSel, periodos, v => v);
+  if(!hadPeriodo && periodos.includes('MENSAL')) perSel.value = 'MENSAL';
+  document.getElementById('estFolhaPeriodoWrap').style.display = periodos.length > 1 ? '' : 'none';
+
+  folhaView = folhaBuildView(compSel.value, perSel.value);
+  const v = folhaView, rows = v.rows;
+  estFolhaState('');
+
+  document.getElementById('estFolhaSub').textContent = `${folhaCompLabel(v.comp)} · ${rows.length} contrato(s) relacionado(s)`;
+  chip.textContent = v.atualizadoEm ? 'Atualização: ' + new Date(v.atualizadoEm).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short'}) : 'Atualização: —';
+
+  const sum = k => rows.reduce((s, r) => s + (r[k] || 0), 0);
+  const totFolha = sum('folha'), totFgts = sum('fgts'), totEmp = sum('emp');
+  const tot = rows.reduce((s, r) => s + r.total, 0);
+  const comFolha = rows.filter(r => r.informado);
+  const semFolha = rows.filter(r => !r.informado);
+  const share = x => tot ? fmtPct(x / tot) : '—';
+  const variacaoTotal = (v.prevTotal && v.prevTotal > 0) ? (tot - v.prevTotal) / v.prevTotal : null;
+  const bases = [...new Set(comFolha.map(r => r.baseFolha).filter(Boolean))];
+  const semFgts = comFolha.filter(r => r.fgts === null);
+
+  document.getElementById('estFolhaKpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Total registrado</div><div class="kpi-value">${fmtCur(tot)}</div>
+      <div class="est-sub">${FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? 'Folha + FGTS + empréstimos' : 'Folha + FGTS'} · ${variacaoTotal === null ? 'sem competência anterior' : folhaFmtVar(variacaoTotal) + ' vs ' + folhaCompLabel(v.prevComp)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Folha de pagamento</div><div class="kpi-value">${fmtCur(totFolha)}</div>
+      <div class="est-sub">${share(totFolha)} do total${bases.length === 1 ? ' · base: ' + bases[0] : bases.length > 1 ? ' · bases mistas' : ' · base não informada'}</div></div>
+    <div class="kpi-card"><div class="kpi-label">FGTS mensal</div><div class="kpi-value">${fmtCur(totFgts)}</div>
+      <div class="est-sub">${share(totFgts)} do total${semFgts.length ? ' · ' + semFgts.length + ' sem FGTS informado' : ''}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Empréstimos</div><div class="kpi-value">${fmtCur(totEmp)}</div>
+      <div class="est-sub">${FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? share(totEmp) + ' do total' : 'não somado ao total'}</div></div>
+  `;
+  document.getElementById('estFolhaStrips').innerHTML = `
+    <div class="est-strip"><span>Contratos relacionados</span><strong>${rows.length}</strong></div>
+    <div class="est-strip"><span>Com folha informada</span><strong>${comFolha.length}</strong></div>
+    <div class="est-strip alert"><span>Sem valor de folha</span><strong>${semFolha.length}</strong></div>
+  `;
+
+  // Ranking
+  const top = [...comFolha].sort((a, b) => b.total - a.total).slice(0, 8);
+  const rankEl = document.getElementById('estFolhaRanking');
+  if(!top.length) rankEl.innerHTML = '<div class="est-empty">Nenhum contrato com folha informada.</div>';
+  else {
+    const max = top[0].total || 1;
+    rankEl.innerHTML = top.map(r => `
+      <div class="est-barrow" data-nome="${estEsc(r.nome)}" title="${estEsc(r.nome)} — ${fmtCur(r.total)}">
+        <div class="est-barname">${estEsc(r.nome)}</div>
+        <div class="est-barbg"><div class="est-barfill" style="width:${(r.total / max * 100).toFixed(1)}%"></div></div>
+        <div class="est-barval">${fmtCur(r.total)}</div>
+      </div>`).join('');
+    rankEl.querySelectorAll('.est-barrow').forEach(el => el.addEventListener('click', () => {
+      document.getElementById('estFolhaSearch').value = el.dataset.nome;
+      renderEstFolhaTable();
+      document.getElementById('estFolhaBody').scrollIntoView({behavior: 'smooth', block: 'center'});
+    }));
+  }
+
+  // Composição (rosca)
+  const slices = [
+    {label: 'Folha de pagamento', value: totFolha, color: EST_PALETTE[0]},
+    {label: 'FGTS mensal', value: totFgts, color: '#4F8A1E'},
+    {label: 'Empréstimos', value: totEmp, color: '#F4A261'},
+  ].filter(s => s.value > 0);
+  if(chartInstances.estFolhaDonut){ chartInstances.estFolhaDonut.destroy(); delete chartInstances.estFolhaDonut; }
+  const donutEl = document.getElementById('estFolhaDonut');
+  const sliceTot = slices.reduce((s, x) => s + x.value, 0);
+  if(!slices.length){
+    donutEl.style.display = 'none';
+    document.getElementById('estFolhaLegend').innerHTML = '<div class="est-empty">Sem valores para o gráfico.</div>';
+  } else {
+    donutEl.style.display = '';
+    chartInstances.estFolhaDonut = new Chart(donutEl, {type: 'doughnut',
+      data: {labels: slices.map(s => s.label), datasets: [{data: slices.map(s => s.value), backgroundColor: slices.map(s => s.color), borderWidth: 0}]},
+      options: {responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: {legend: {display: false}, tooltip: {callbacks: {label: c => ` ${c.label}: ${fmtCur(c.parsed)}`}}}}});
+    document.getElementById('estFolhaLegend').innerHTML = slices.map(s => `
+      <div class="est-legend-row"><span class="est-swatch" style="background:${s.color}"></span><span class="est-lname">${estEsc(s.label)}</span><b>${fmtPct(s.value / sliceTot)}</b></div>`).join('');
+  }
+
+  // Evolução mensal (últimas 12 competências do período)
+  const evoComps = v.comps.slice(-12);
+  const evo = evoComps.map(c => {
+    const rs = folhaData.resumo.filter(r => r.periodo === v.periodo && folhaCompKey(r) === c);
+    return {folha: rs.reduce((s, r) => s + (r.valor_folha || 0), 0), fgts: rs.reduce((s, r) => s + (r.fgts || 0), 0), emp: FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? rs.reduce((s, r) => s + (r.emprestimos || 0), 0) : 0};
+  });
+  if(chartInstances.estFolhaEvolucao) chartInstances.estFolhaEvolucao.destroy();
+  chartInstances.estFolhaEvolucao = new Chart(document.getElementById('estFolhaEvolucao'), {type: 'bar',
+    data: {labels: evoComps.map(folhaCompLabel), datasets: [
+      {label: 'Folha', data: evo.map(e => e.folha), backgroundColor: EST_PALETTE[0], borderRadius: 3},
+      {label: 'FGTS', data: evo.map(e => e.fgts), backgroundColor: '#4F8A1E', borderRadius: 3},
+      ...(FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? [{label: 'Empréstimos', data: evo.map(e => e.emp), backgroundColor: '#F4A261', borderRadius: 3}] : []),
+    ]},
+    options: {responsive: true, maintainAspectRatio: false,
+      scales: {x: {stacked: true, grid: {display: false}}, y: {stacked: true, beginAtZero: true, ticks: {callback: n => 'R$ ' + (n / 1000).toLocaleString('pt-BR') + 'k'}, grid: {color: '#EEF0F3'}}},
+      plugins: {legend: {position: 'bottom', labels: {boxWidth: 10, font: {size: 11}}}, tooltip: {callbacks: {label: c => ` ${c.dataset.label}: ${fmtCur(c.parsed.y)}`}}}}});
+
+  // Alertas
+  const names = list => list.slice(0, 3).map(r => r.nome).join(', ') + (list.length > 3 ? ` e mais ${list.length - 3}` : '');
+  const alerts = [];
+  if(semFolha.length) alerts.push({tone: 'warn', ico: '!', title: `${semFolha.length} contrato(s) sem valor de folha`, text: 'Confirme se estão inativos, sem movimento ou se os dados ainda não foram carregados.'});
+  if(semFgts.length) alerts.push({tone: 'warn', ico: '!', title: `${semFgts.length} contrato(s) com folha e sem FGTS informado`, text: names(semFgts) + '.'});
+  const semBase = comFolha.filter(r => !r.baseFolha);
+  if(semBase.length) alerts.push({tone: 'warn', ico: '!', title: 'Natureza do valor de folha não informada', text: 'A carga não indicou se o valor é bruto ou líquido. Valide antes de apresentar.'});
+  const semCadastro = rows.filter(r => r.temLinha && !r.cadastrada);
+  if(semCadastro.length) alerts.push({tone: 'warn', ico: '!', title: `${semCadastro.length} contrato(s) sem cadastro de unidade`, text: names(semCadastro) + '. Aparecem pelo código de origem.'});
+  const variou = comFolha.filter(r => r.variacao !== null && Math.abs(r.variacao) >= FOLHA_ALERTA_VARIACAO).sort((a, b) => Math.abs(b.variacao) - Math.abs(a.variacao));
+  if(variou.length) alerts.push({tone: 'info', ico: 'i', title: `${variou.length} contrato(s) com variação a conferir (≥ ${fmtPct(FOLHA_ALERTA_VARIACAO)})`, text: variou.slice(0, 3).map(r => `${r.nome} (${folhaFmtVar(r.variacao)})`).join(', ') + '. Variação alta não significa erro.'});
+  if(tot > 0 && top.length >= 3){
+    const s3 = top.slice(0, 3).reduce((s, r) => s + r.total, 0) / tot;
+    alerts.push({tone: 'info', ico: 'i', title: 'Concentração dos valores', text: `Os três maiores contratos representam ${fmtPct(s3)} do total registrado.`});
+  }
+  if(FOLHA_TOTAL_INCLUI_EMPRESTIMOS && totEmp > 0) alerts.push({tone: 'info', ico: 'i', title: 'Empréstimos somados ao total', text: 'Empréstimos podem ser repasses de consignados já descontados na folha. Confirme antes de tratá-los como custo adicional.'});
+  document.getElementById('estFolhaAlerts').innerHTML = alerts.length
+    ? alerts.map(a => `<div class="est-alert ${a.tone}"><div class="est-alert-ico">${a.ico}</div><div><h4>${estEsc(a.title)}</h4><p>${estEsc(a.text)}</p></div></div>`).join('')
+    : '<div class="est-empty">Nenhum alerta para esta competência.</div>';
+
+  // Leitura executiva (somente fatos calculados)
+  let txt = `Em ${folhaCompLabel(v.comp)}, ${comFolha.length} de ${rows.length} contratos têm folha informada, somando ${fmtCur(tot)} em valores registrados.`;
+  if(top.length >= 3 && tot > 0) txt += ` Os maiores são ${top.slice(0, 3).map(r => r.nome).join(', ')}, que concentram ${fmtPct(top.slice(0, 3).reduce((s, r) => s + r.total, 0) / tot)} do total.`;
+  if(variacaoTotal !== null) txt += ` Em relação a ${folhaCompLabel(v.prevComp)}, o total variou ${folhaFmtVar(variacaoTotal)}.`;
+  txt += ' Os números são valores registrados no sistema de folha, não necessariamente pagamentos realizados nem o custo trabalhista completo.';
+  document.getElementById('estFolhaInsight').innerHTML = `<strong>Leitura executiva</strong>${estEsc(txt)}`;
+  document.getElementById('estFolhaNote').textContent = 'Células sem valor significam informação ausente, não zero confirmado. Fonte: carga do sistema de folha (' + (folhaData.ultimaCarga ? folhaData.ultimaCarga.fonte : 'origem não registrada') + ').';
+
+  renderEstFolhaTable();
+}
+
+function estFolhaTableRows(){
+  if(!folhaView) return [];
+  const q = estNorm(document.getElementById('estFolhaSearch').value);
+  const f = document.getElementById('estFolhaFilter').value;
+  const sort = document.getElementById('estFolhaSort').value;
+  const rows = folhaView.rows
+    .filter(r => !q || estNorm(r.nome).includes(q))
+    .filter(r => f === 'all' || (f === 'com' && r.informado) || (f === 'sem' && !r.informado));
+  rows.sort((a, b) => {
+    if(sort === 'name') return a.nome.localeCompare(b.nome, 'pt-BR');
+    if(sort === 'folha') return (b.folha || 0) - (a.folha || 0);
+    if(sort === 'var') return Math.abs(b.variacao || 0) - Math.abs(a.variacao || 0);
+    return b.total - a.total;
+  });
+  return rows;
+}
+
+function renderEstFolhaTable(){
+  const rows = estFolhaTableRows();
+  const dash = '—';
+  document.getElementById('estFolhaBody').innerHTML = rows.length ? rows.map(r => `<tr style="cursor:default;">
+      <td title="${estEsc(r.nome)}">${estEsc(r.nome)}</td>
+      <td>${r.colab === null ? dash : r.colab}</td>
+      <td>${r.folha === null ? dash : fmtCur(r.folha)}</td>
+      <td>${r.fgts === null ? dash : fmtCur(r.fgts)}</td>
+      <td>${r.emp === null ? dash : fmtCur(r.emp)}</td>
+      <td><b>${fmtCur(r.total)}</b></td>
+      <td>${folhaFmtVar(r.variacao)}</td>
+      <td><span class="est-pill ${r.informado ? 'ok' : 'warn'}">${r.informado ? 'Informado' : 'Não informado'}</span></td>
+    </tr>`).join('') : '<tr><td colspan="8" style="text-align:center; padding:28px; cursor:default;">Nenhum contrato encontrado.</td></tr>';
+}
+
+function exportEstFolhaCsv(){
+  if(!folhaView) return;
+  const rows = estFolhaTableRows();
+  const num = x => x === null ? '' : String(Math.round(x * 100) / 100).replace('.', ',');
+  const lines = [['CONTRATO','COLABORADORES','FOLHA','FGTS','EMPRESTIMOS','TOTAL','VARIACAO_MES_%','SITUACAO'],
+    ...rows.map(r => [r.nome, r.colab === null ? '' : r.colab, num(r.folha), num(r.fgts), num(r.emp), num(r.total), r.variacao === null ? '' : num(r.variacao * 100), r.informado ? 'Informado' : 'Nao informado'])];
+  const csv = '﻿' + lines.map(l => l.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
+  const a = document.createElement('a');
+  a.href = url; a.download = `folha_${folhaView.comp.slice(0, 7)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// Cartão "Folha de Pagamento" na tela inicial: só abre para quem tem o módulo liberado no perfil.
+function estUpdateHub(){
+  const card = document.getElementById('estFolhaCard');
+  if(!card) return;
+  const ok = hasAccess('folha', 'view');
+  card.classList.toggle('disabled', !ok);
+  document.getElementById('estFolhaBadge').style.display = ok ? 'none' : '';
+  card.querySelector('.est-card-cta').textContent = ok ? 'Abrir painel →' : 'Sem acesso';
+}
+
+document.getElementById('estFolhaComp').addEventListener('change', estFolhaPaint);
+document.getElementById('estFolhaPeriodo').addEventListener('change', estFolhaPaint);
+document.getElementById('btnEstFolhaReload').addEventListener('click', () => { estFolhaState('Carregando dados da folha...'); loadFolha(true).then(estFolhaPaint); });
+document.getElementById('estFolhaSearch').addEventListener('input', renderEstFolhaTable);
+document.getElementById('estFolhaFilter').addEventListener('change', renderEstFolhaTable);
+document.getElementById('estFolhaSort').addEventListener('change', renderEstFolhaTable);
+document.getElementById('btnEstFolhaCsv').addEventListener('click', exportEstFolhaCsv);
 
 /* ===================== CONTRACT SELECTS (shared helper) ===================== */
 function populateContractSelect(sel, includeAll){
