@@ -524,8 +524,7 @@
       <div id="estFolhaState" class="est-state"></div>
 
       <div id="estFolhaContent" style="display:none;">
-        <div class="kpi-row" id="estFolhaKpis"></div>
-        <div class="kpi-row" id="estFolhaKpisBen" style="grid-template-columns:repeat(3,1fr); display:none;"></div>
+        <div class="kpi-row" id="estFolhaKpis" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));"></div>
         <div class="est-strips" id="estFolhaStrips"></div>
 
         <div class="est-grid-wide">
@@ -1479,7 +1478,7 @@ document.getElementById('btnEstCsv').addEventListener('click', exportEstCsv);
 /* ===================== DASHBOARD DE FOLHA (dados do ERP, carregados no Supabase) ===================== */
 // Regras configuráveis (confirmar com o DP / Financeiro):
 const FOLHA_TOTAL_INCLUI_EMPRESTIMOS = true;  // true = igual à planilha de referência (folha + FGTS + empréstimos)
-const FOLHA_TOTAL_INCLUI_BENEFICIOS = false;  // true = soma VT e VA ao total registrado
+const FOLHA_TOTAL_INCLUI_BENEFICIOS = true;   // true = soma os benefícios selecionados (VT/VA) ao total registrado
 const FOLHA_ALERTA_VARIACAO = 0.20;           // variação mensal a partir da qual a unidade entra em "a conferir"
 
 let folhaData = {status:'idle', resumo:[], unidades:[], ultimaCarga:null, erro:null};
@@ -1531,7 +1530,7 @@ async function loadFolha(force){
 const folhaCompKey = r => String(r.competencia).slice(0, 10);
 const folhaCompLabel = iso => { const [y, m] = iso.split('-'); return `${MESES[parseInt(m, 10) - 1]}/${y}`; };
 const folhaFmtVar = v => v === null ? '—' : (v > 0 ? '▲ ' : v < 0 ? '▼ ' : '') + fmtPct(Math.abs(v));
-const folhaTotalOf = (folha, fgts, emp, vt, va) => (folha || 0) + (fgts || 0) + (FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? (emp || 0) : 0) + (FOLHA_TOTAL_INCLUI_BENEFICIOS ? (vt || 0) + (va || 0) : 0);
+const folhaTotalOf = (folha, fgts, emp, vt, va) => (folha || 0) + (fgts || 0) + (FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? (emp || 0) : 0) + (FOLHA_TOTAL_INCLUI_BENEFICIOS ? (folhaBen.vt ? (vt || 0) : 0) + (folhaBen.va ? (va || 0) : 0) : 0);
 
 function estFillSelect(sel, values, labelFn){
   const prev = sel.value;
@@ -1628,26 +1627,23 @@ function estFolhaPaint(){
   const bases = [...new Set(comFolha.map(r => r.baseFolha).filter(Boolean))];
   const semFgts = comFolha.filter(r => r.fgts === null);
 
+  const temBen = rows.some(r => r.vt != null || r.va != null);
+  const totVt = rows.reduce((s, r) => s + (r.vt || 0), 0), totVa = rows.reduce((s, r) => s + (r.va || 0), 0);
+  const totBen = (folhaBen.vt ? totVt : 0) + (folhaBen.va ? totVa : 0);
+  const partesBen = [folhaBen.vt ? 'VT ' + fmtCur(totVt) : null, folhaBen.va ? 'VA ' + fmtCur(totVa) : null].filter(Boolean).join(' · ');
+  const cartaoBen = `<div class="kpi-card"><div class="kpi-label">Benefícios${folhaBen.vt && folhaBen.va ? ' (VT + VA)' : folhaBen.vt ? ' (VT)' : folhaBen.va ? ' (VA)' : ''}</div><div class="kpi-value">${temBen && partesBen ? fmtCur(totBen) : '—'}</div>
+      <div class="est-sub">${!partesBen ? 'nenhum benefício selecionado' : !temBen ? 'ainda não informado' : partesBen + ' · ' + (FOLHA_TOTAL_INCLUI_BENEFICIOS ? share(totBen) + ' do total' : 'não somado ao total')}</div></div>`;
   document.getElementById('estFolhaKpis').innerHTML = `
     <div class="kpi-card"><div class="kpi-label">Total registrado</div><div class="kpi-value">${fmtCur(tot)}</div>
-      <div class="est-sub">${FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? 'Folha + FGTS + empréstimos' : 'Folha + FGTS'} · ${variacaoTotal === null ? 'sem competência anterior' : folhaFmtVar(variacaoTotal) + ' vs ' + folhaCompLabel(v.prevComp)}</div></div>
+      <div class="est-sub">${'Folha + FGTS' + (FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? ' + empréstimos' : '') + (FOLHA_TOTAL_INCLUI_BENEFICIOS && temBen && partesBen ? ' + benefícios' : '')} · ${variacaoTotal === null ? 'sem competência anterior' : folhaFmtVar(variacaoTotal) + ' vs ' + folhaCompLabel(v.prevComp)}</div></div>
     <div class="kpi-card"><div class="kpi-label">Folha de pagamento</div><div class="kpi-value">${fmtCur(totFolha)}</div>
       <div class="est-sub">${share(totFolha)} do total${bases.length === 1 ? ' · base: ' + bases[0] : bases.length > 1 ? ' · bases mistas' : ' · base não informada'}</div></div>
     <div class="kpi-card"><div class="kpi-label">FGTS mensal</div><div class="kpi-value">${fmtCur(totFgts)}</div>
       <div class="est-sub">${share(totFgts)} do total${semFgts.length ? ' · ' + semFgts.length + ' sem FGTS informado' : ''}</div></div>
     <div class="kpi-card"><div class="kpi-label">Empréstimos</div><div class="kpi-value">${fmtCur(totEmp)}</div>
       <div class="est-sub">${FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? share(totEmp) + ' do total' : 'não somado ao total'}</div></div>
+    ${cartaoBen}
   `;
-  const temBen = rows.some(r => r.vt != null || r.va != null);
-  const totVt = rows.reduce((s, r) => s + (r.vt || 0), 0), totVa = rows.reduce((s, r) => s + (r.va || 0), 0);
-  const benEl = document.getElementById('estFolhaKpisBen');
-  const cartoes = [];
-  if(folhaBen.vt) cartoes.push(`<div class="kpi-card"><div class="kpi-label">Vale-transporte (VT)</div><div class="kpi-value">${fmtCur(totVt)}</div><div class="est-sub">${rows.filter(r => r.vt != null).length} contrato(s) com VT informado</div></div>`);
-  if(folhaBen.va) cartoes.push(`<div class="kpi-card"><div class="kpi-label">Vale-alimentação (VA)</div><div class="kpi-value">${fmtCur(totVa)}</div><div class="est-sub">${rows.filter(r => r.va != null).length} contrato(s) com VA informado</div></div>`);
-  if(folhaBen.vt && folhaBen.va) cartoes.push(`<div class="kpi-card"><div class="kpi-label">Benefícios (VT + VA)</div><div class="kpi-value">${fmtCur(totVt + totVa)}</div><div class="est-sub">${FOLHA_TOTAL_INCLUI_BENEFICIOS ? 'somados ao total registrado' : 'não somados ao total registrado'}</div></div>`);
-  benEl.style.display = temBen && cartoes.length ? '' : 'none';
-  benEl.style.gridTemplateColumns = `repeat(${Math.max(cartoes.length, 1)},1fr)`;
-  benEl.innerHTML = cartoes.join('');
   const tab = document.querySelector('#estFolhaContent .est-table');
   tab.classList.toggle('est-hide-vt', !folhaBen.vt); tab.classList.toggle('est-hide-va', !folhaBen.va);
   document.getElementById('estFolhaStrips').innerHTML = `
@@ -1680,6 +1676,7 @@ function estFolhaPaint(){
     {label: 'Folha de pagamento', value: totFolha, color: EST_PALETTE[0]},
     {label: 'FGTS mensal', value: totFgts, color: '#4F8A1E'},
     {label: 'Empréstimos', value: totEmp, color: '#F4A261'},
+    ...(FOLHA_TOTAL_INCLUI_BENEFICIOS ? [{label: 'Benefícios', value: totBen, color: '#7B5EA7'}] : []),
   ].filter(s => s.value > 0);
   if(chartInstances.estFolhaDonut){ chartInstances.estFolhaDonut.destroy(); delete chartInstances.estFolhaDonut; }
   const donutEl = document.getElementById('estFolhaDonut');
@@ -1700,7 +1697,8 @@ function estFolhaPaint(){
   const evoComps = v.comps.slice(-12);
   const evo = evoComps.map(c => {
     const rs = folhaData.resumo.filter(r => r.periodo === v.periodo && folhaCompKey(r) === c && (!contratoKey || r.coligada + '|' + r.codigo_origem === contratoKey));
-    return {folha: rs.reduce((s, r) => s + (r.valor_folha || 0), 0), fgts: rs.reduce((s, r) => s + (r.fgts || 0), 0), emp: FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? rs.reduce((s, r) => s + (r.emprestimos || 0), 0) : 0};
+    return {folha: rs.reduce((s, r) => s + (r.valor_folha || 0), 0), fgts: rs.reduce((s, r) => s + (r.fgts || 0), 0), emp: FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? rs.reduce((s, r) => s + (r.emprestimos || 0), 0) : 0,
+      ben: FOLHA_TOTAL_INCLUI_BENEFICIOS ? rs.reduce((s, r) => s + (folhaBen.vt ? (r.vale_transporte || 0) : 0) + (folhaBen.va ? (r.vale_alimentacao || 0) : 0), 0) : 0};
   });
   if(chartInstances.estFolhaEvolucao) chartInstances.estFolhaEvolucao.destroy();
   chartInstances.estFolhaEvolucao = new Chart(document.getElementById('estFolhaEvolucao'), {type: 'bar',
@@ -1708,6 +1706,7 @@ function estFolhaPaint(){
       {label: 'Folha', data: evo.map(e => e.folha), backgroundColor: EST_PALETTE[0], borderRadius: 3},
       {label: 'FGTS', data: evo.map(e => e.fgts), backgroundColor: '#4F8A1E', borderRadius: 3},
       ...(FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? [{label: 'Empréstimos', data: evo.map(e => e.emp), backgroundColor: '#F4A261', borderRadius: 3}] : []),
+      ...(FOLHA_TOTAL_INCLUI_BENEFICIOS && evo.some(e => e.ben > 0) ? [{label: 'Benefícios', data: evo.map(e => e.ben), backgroundColor: '#7B5EA7', borderRadius: 3}] : []),
     ]},
     options: {responsive: true, maintainAspectRatio: false,
       scales: {x: {stacked: true, grid: {display: false}}, y: {stacked: true, beginAtZero: true, ticks: {callback: n => 'R$ ' + (n / 1000).toLocaleString('pt-BR') + 'k'}, grid: {color: '#EEF0F3'}}},
