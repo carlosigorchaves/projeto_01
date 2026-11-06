@@ -507,6 +507,8 @@
         <div class="est-tools">
           <label for="estFolhaComp">Competência</label>
           <select id="estFolhaComp"></select>
+          <label for="estFolhaContrato">Contrato</label>
+          <select id="estFolhaContrato" style="max-width:260px;"></select>
           <span id="estFolhaPeriodoWrap" style="display:none;"><label for="estFolhaPeriodo">Período</label> <select id="estFolhaPeriodo"></select></span>
           <button id="btnEstFolhaReload" title="Buscar os dados novamente">Atualizar</button>
         </div>
@@ -1530,7 +1532,7 @@ function estFillSelect(sel, values, labelFn){
 }
 
 // Monta as linhas (uma por contrato/unidade) da competência e período escolhidos.
-function folhaBuildView(comp, periodo){
+function folhaBuildView(comp, periodo, contratoKey){
   const unidMap = new Map(folhaData.unidades.map(u => [u.coligada + '|' + u.codigo_origem, u]));
   const nomeDe = (col, cod) => { const u = unidMap.get(col + '|' + cod); return (u && (u.nome_gerencial || u.descricao_origem)) || cod; };
 
@@ -1553,11 +1555,13 @@ function folhaBuildView(comp, periodo){
     rows.set(key, {...base, temLinha: true, folha: r.valor_folha, fgts: r.fgts, emp: r.emprestimos, colab: r.qtd_colaboradores,
       total: folhaTotalOf(r.valor_folha, r.fgts, r.emprestimos), baseFolha: r.base_folha});
   });
-  const list = [...rows.values()].map(r => {
+  let todas = [...rows.values()];
+  if(contratoKey) todas = todas.filter(r => r.key === contratoKey);
+  const list = todas.map(r => {
     const prev = prevMap.get(r.key);
     return {...r, informado: r.temLinha && r.folha !== null, variacao: (prev && prev > 0 && r.temLinha) ? (r.total - prev) / prev : null};
   });
-  const prevTotal = prevComp ? [...prevMap.values()].reduce((s, v) => s + v, 0) : null;
+  const prevTotal = prevComp ? [...prevMap.entries()].filter(([k]) => !contratoKey || k === contratoKey).reduce((s, [, v]) => s + v, 0) : null;
   const atualizadoEm = atual.map(r => r.atualizado_em).filter(Boolean).sort().pop() || (folhaData.ultimaCarga && folhaData.ultimaCarga.finalizada_em) || null;
   return {comp, periodo, rows: list, prevComp, prevTotal, comps, atualizadoEm};
 }
@@ -1590,11 +1594,18 @@ function estFolhaPaint(){
   if(!hadPeriodo && periodos.includes('MENSAL')) perSel.value = 'MENSAL';
   document.getElementById('estFolhaPeriodoWrap').style.display = periodos.length > 1 ? '' : 'none';
 
-  folhaView = folhaBuildView(compSel.value, perSel.value);
+  const completa = folhaBuildView(compSel.value, perSel.value, null);
+  const nomes = new Map(completa.rows.map(r => [r.key, r.nome]));
+  const chaves = [...nomes.keys()].sort((a, b) => nomes.get(a).localeCompare(nomes.get(b), 'pt-BR'));
+  const contSel = document.getElementById('estFolhaContrato');
+  estFillSelect(contSel, ['', ...chaves], k => k === '' ? 'Todos os contratos' : nomes.get(k));
+  if(contSel.value && !nomes.has(contSel.value)) contSel.value = '';
+  const contratoKey = contSel.value || null;
+  folhaView = contratoKey ? folhaBuildView(compSel.value, perSel.value, contratoKey) : completa;
   const v = folhaView, rows = v.rows;
   estFolhaState('');
 
-  document.getElementById('estFolhaSub').textContent = `${folhaCompLabel(v.comp)} · ${rows.length} contrato(s) relacionado(s)`;
+  document.getElementById('estFolhaSub').textContent = contratoKey ? `${folhaCompLabel(v.comp)} · ${rows[0] ? rows[0].nome : ''}` : `${folhaCompLabel(v.comp)} · ${rows.length} contrato(s) relacionado(s)`;
   chip.textContent = v.atualizadoEm ? 'Atualização: ' + new Date(v.atualizadoEm).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short'}) : 'Atualização: —';
 
   const sum = k => rows.reduce((s, r) => s + (r[k] || 0), 0);
@@ -1666,7 +1677,7 @@ function estFolhaPaint(){
   // Evolução mensal (últimas 12 competências do período)
   const evoComps = v.comps.slice(-12);
   const evo = evoComps.map(c => {
-    const rs = folhaData.resumo.filter(r => r.periodo === v.periodo && folhaCompKey(r) === c);
+    const rs = folhaData.resumo.filter(r => r.periodo === v.periodo && folhaCompKey(r) === c && (!contratoKey || r.coligada + '|' + r.codigo_origem === contratoKey));
     return {folha: rs.reduce((s, r) => s + (r.valor_folha || 0), 0), fgts: rs.reduce((s, r) => s + (r.fgts || 0), 0), emp: FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? rs.reduce((s, r) => s + (r.emprestimos || 0), 0) : 0};
   });
   if(chartInstances.estFolhaEvolucao) chartInstances.estFolhaEvolucao.destroy();
@@ -1769,6 +1780,7 @@ function estUpdateHub(){
 
 document.getElementById('estFolhaComp').addEventListener('change', estFolhaPaint);
 document.getElementById('estFolhaPeriodo').addEventListener('change', estFolhaPaint);
+document.getElementById('estFolhaContrato').addEventListener('change', estFolhaPaint);
 document.getElementById('btnEstFolhaReload').addEventListener('click', () => { estFolhaState('Carregando dados da folha...'); loadFolha(true).then(estFolhaPaint); });
 document.getElementById('estFolhaSearch').addEventListener('input', renderEstFolhaTable);
 document.getElementById('estFolhaFilter').addEventListener('change', renderEstFolhaTable);
