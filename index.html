@@ -218,6 +218,9 @@
   .est-chip{display:inline-block; font-size:11.5px; color:var(--text-2); background:#fff; border:1px solid var(--border); border-radius:20px; padding:4px 10px;}
   .est-state{background:#fff; border:1px dashed var(--border); border-radius:var(--radius); padding:36px 24px; text-align:center; color:var(--text-2); font-size:13px; line-height:1.7; margin-bottom:20px;}
   .est-note{font-size:11.5px; color:var(--text-3); line-height:1.6;}
+  .est-toggle{font:inherit; font-size:12px; font-weight:600; padding:5px 12px; border-radius:20px; border:1px solid var(--border); background:#fff; color:var(--text-2); cursor:pointer;}
+  .est-toggle.on{background:var(--brand-light); border-color:var(--brand); color:var(--brand-dark);}
+  .est-hide-vt .ben-vt, .est-hide-va .ben-va{display:none;}
   .est-pill.muted{background:#F1EEE8; color:var(--text-2);}
   .est-neg{color:var(--danger);}
   @media(max-width:900px){
@@ -507,6 +510,11 @@
         <div class="est-tools">
           <label for="estFolhaComp">Competência</label>
           <select id="estFolhaComp"></select>
+          <label>Benefícios</label>
+          <button type="button" class="est-toggle on" id="estBenVt" aria-pressed="true" title="Mostrar/ocultar VT">VT</button>
+          <button type="button" class="est-toggle on" id="estBenVa" aria-pressed="true" title="Mostrar/ocultar VA">VA</button>
+          <label for="estFolhaContrato">Contrato</label>
+          <select id="estFolhaContrato" style="max-width:260px;"></select>
           <span id="estFolhaPeriodoWrap" style="display:none;"><label for="estFolhaPeriodo">Período</label> <select id="estFolhaPeriodo"></select></span>
           <button id="btnEstFolhaReload" title="Buscar os dados novamente">Atualizar</button>
         </div>
@@ -517,6 +525,7 @@
 
       <div id="estFolhaContent" style="display:none;">
         <div class="kpi-row" id="estFolhaKpis"></div>
+        <div class="kpi-row" id="estFolhaKpisBen" style="grid-template-columns:repeat(3,1fr); display:none;"></div>
         <div class="est-strips" id="estFolhaStrips"></div>
 
         <div class="est-grid-wide">
@@ -563,7 +572,7 @@
           </div>
           <div class="est-scroll">
             <table class="est-table">
-              <thead><tr><th>Contrato</th><th>Colab.</th><th>Folha</th><th>FGTS</th><th>Empréstimos</th><th>Total</th><th>Var. mês</th><th>Situação</th></tr></thead>
+              <thead><tr><th>Contrato</th><th>Colab.</th><th>Folha</th><th>FGTS</th><th>Empréstimos</th><th class="ben-vt">VT</th><th class="ben-va">VA</th><th>Total</th><th>Var. mês</th><th>Situação</th></tr></thead>
               <tbody id="estFolhaBody"></tbody>
             </table>
           </div>
@@ -1470,10 +1479,12 @@ document.getElementById('btnEstCsv').addEventListener('click', exportEstCsv);
 /* ===================== DASHBOARD DE FOLHA (dados do ERP, carregados no Supabase) ===================== */
 // Regras configuráveis (confirmar com o DP / Financeiro):
 const FOLHA_TOTAL_INCLUI_EMPRESTIMOS = true;  // true = igual à planilha de referência (folha + FGTS + empréstimos)
+const FOLHA_TOTAL_INCLUI_BENEFICIOS = false;  // true = soma VT e VA ao total registrado
 const FOLHA_ALERTA_VARIACAO = 0.20;           // variação mensal a partir da qual a unidade entra em "a conferir"
 
 let folhaData = {status:'idle', resumo:[], unidades:[], ultimaCarga:null, erro:null};
 let folhaView = null;
+const folhaBen = {vt: true, va: true};  // benefícios exibidos (VT e VR)
 
 async function sbSelectAllPaged(table, orderCols){
   // O Supabase devolve no máximo 1000 linhas por consulta: busca em páginas.
@@ -1506,7 +1517,8 @@ async function loadFolha(force){
       unidades,
       resumo: resumo.map(r => ({...r,
         qtd_colaboradores: num(r.qtd_colaboradores), proventos: num(r.proventos), descontos: num(r.descontos),
-        liquido: num(r.liquido), valor_folha: num(r.valor_folha), fgts: num(r.fgts), emprestimos: num(r.emprestimos)})),
+        liquido: num(r.liquido), valor_folha: num(r.valor_folha), fgts: num(r.fgts), emprestimos: num(r.emprestimos),
+        vale_transporte: num(r.vale_transporte), vale_alimentacao: num(r.vale_alimentacao)})),
     };
   }catch(e){
     console.error('Falha ao carregar folha:', e);
@@ -1519,7 +1531,7 @@ async function loadFolha(force){
 const folhaCompKey = r => String(r.competencia).slice(0, 10);
 const folhaCompLabel = iso => { const [y, m] = iso.split('-'); return `${MESES[parseInt(m, 10) - 1]}/${y}`; };
 const folhaFmtVar = v => v === null ? '—' : (v > 0 ? '▲ ' : v < 0 ? '▼ ' : '') + fmtPct(Math.abs(v));
-const folhaTotalOf = (folha, fgts, emp) => (folha || 0) + (fgts || 0) + (FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? (emp || 0) : 0);
+const folhaTotalOf = (folha, fgts, emp, vt, va) => (folha || 0) + (fgts || 0) + (FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? (emp || 0) : 0) + (FOLHA_TOTAL_INCLUI_BENEFICIOS ? (vt || 0) + (va || 0) : 0);
 
 function estFillSelect(sel, values, labelFn){
   const prev = sel.value;
@@ -1530,7 +1542,7 @@ function estFillSelect(sel, values, labelFn){
 }
 
 // Monta as linhas (uma por contrato/unidade) da competência e período escolhidos.
-function folhaBuildView(comp, periodo){
+function folhaBuildView(comp, periodo, contratoKey){
   const unidMap = new Map(folhaData.unidades.map(u => [u.coligada + '|' + u.codigo_origem, u]));
   const nomeDe = (col, cod) => { const u = unidMap.get(col + '|' + cod); return (u && (u.nome_gerencial || u.descricao_origem)) || cod; };
 
@@ -1540,7 +1552,7 @@ function folhaBuildView(comp, periodo){
   const prevComp = comps.filter(c => c < comp).pop() || null;
   const prevMap = new Map();
   doPeriodo.filter(r => prevComp && folhaCompKey(r) === prevComp)
-    .forEach(r => prevMap.set(r.coligada + '|' + r.codigo_origem, folhaTotalOf(r.valor_folha, r.fgts, r.emprestimos)));
+    .forEach(r => prevMap.set(r.coligada + '|' + r.codigo_origem, folhaTotalOf(r.valor_folha, r.fgts, r.emprestimos, r.vale_transporte, r.vale_alimentacao)));
 
   const rows = new Map();
   folhaData.unidades.filter(u => u.ativo !== false).forEach(u => {
@@ -1550,14 +1562,16 @@ function folhaBuildView(comp, periodo){
   atual.forEach(r => {
     const key = r.coligada + '|' + r.codigo_origem;
     const base = rows.get(key) || {key, nome: nomeDe(r.coligada, r.codigo_origem), cadastrada: unidMap.has(key)};
-    rows.set(key, {...base, temLinha: true, folha: r.valor_folha, fgts: r.fgts, emp: r.emprestimos, colab: r.qtd_colaboradores,
-      total: folhaTotalOf(r.valor_folha, r.fgts, r.emprestimos), baseFolha: r.base_folha});
+    rows.set(key, {...base, temLinha: true, folha: r.valor_folha, fgts: r.fgts, emp: r.emprestimos, vt: r.vale_transporte, va: r.vale_alimentacao, colab: r.qtd_colaboradores,
+      total: folhaTotalOf(r.valor_folha, r.fgts, r.emprestimos, r.vale_transporte, r.vale_alimentacao), baseFolha: r.base_folha});
   });
-  const list = [...rows.values()].map(r => {
+  let todas = [...rows.values()];
+  if(contratoKey) todas = todas.filter(r => r.key === contratoKey);
+  const list = todas.map(r => {
     const prev = prevMap.get(r.key);
     return {...r, informado: r.temLinha && r.folha !== null, variacao: (prev && prev > 0 && r.temLinha) ? (r.total - prev) / prev : null};
   });
-  const prevTotal = prevComp ? [...prevMap.values()].reduce((s, v) => s + v, 0) : null;
+  const prevTotal = prevComp ? [...prevMap.entries()].filter(([k]) => !contratoKey || k === contratoKey).reduce((s, [, v]) => s + v, 0) : null;
   const atualizadoEm = atual.map(r => r.atualizado_em).filter(Boolean).sort().pop() || (folhaData.ultimaCarga && folhaData.ultimaCarga.finalizada_em) || null;
   return {comp, periodo, rows: list, prevComp, prevTotal, comps, atualizadoEm};
 }
@@ -1590,11 +1604,18 @@ function estFolhaPaint(){
   if(!hadPeriodo && periodos.includes('MENSAL')) perSel.value = 'MENSAL';
   document.getElementById('estFolhaPeriodoWrap').style.display = periodos.length > 1 ? '' : 'none';
 
-  folhaView = folhaBuildView(compSel.value, perSel.value);
+  const completa = folhaBuildView(compSel.value, perSel.value, null);
+  const nomes = new Map(completa.rows.map(r => [r.key, r.nome]));
+  const chaves = [...nomes.keys()].sort((a, b) => nomes.get(a).localeCompare(nomes.get(b), 'pt-BR'));
+  const contSel = document.getElementById('estFolhaContrato');
+  estFillSelect(contSel, ['', ...chaves], k => k === '' ? 'Todos os contratos' : nomes.get(k));
+  if(contSel.value && !nomes.has(contSel.value)) contSel.value = '';
+  const contratoKey = contSel.value || null;
+  folhaView = contratoKey ? folhaBuildView(compSel.value, perSel.value, contratoKey) : completa;
   const v = folhaView, rows = v.rows;
   estFolhaState('');
 
-  document.getElementById('estFolhaSub').textContent = `${folhaCompLabel(v.comp)} · ${rows.length} contrato(s) relacionado(s)`;
+  document.getElementById('estFolhaSub').textContent = contratoKey ? `${folhaCompLabel(v.comp)} · ${rows[0] ? rows[0].nome : ''}` : `${folhaCompLabel(v.comp)} · ${rows.length} contrato(s) relacionado(s)`;
   chip.textContent = v.atualizadoEm ? 'Atualização: ' + new Date(v.atualizadoEm).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short'}) : 'Atualização: —';
 
   const sum = k => rows.reduce((s, r) => s + (r[k] || 0), 0);
@@ -1617,6 +1638,18 @@ function estFolhaPaint(){
     <div class="kpi-card"><div class="kpi-label">Empréstimos</div><div class="kpi-value">${fmtCur(totEmp)}</div>
       <div class="est-sub">${FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? share(totEmp) + ' do total' : 'não somado ao total'}</div></div>
   `;
+  const temBen = rows.some(r => r.vt != null || r.va != null);
+  const totVt = rows.reduce((s, r) => s + (r.vt || 0), 0), totVa = rows.reduce((s, r) => s + (r.va || 0), 0);
+  const benEl = document.getElementById('estFolhaKpisBen');
+  const cartoes = [];
+  if(folhaBen.vt) cartoes.push(`<div class="kpi-card"><div class="kpi-label">Vale-transporte (VT)</div><div class="kpi-value">${fmtCur(totVt)}</div><div class="est-sub">${rows.filter(r => r.vt != null).length} contrato(s) com VT informado</div></div>`);
+  if(folhaBen.va) cartoes.push(`<div class="kpi-card"><div class="kpi-label">Vale-alimentação (VA)</div><div class="kpi-value">${fmtCur(totVa)}</div><div class="est-sub">${rows.filter(r => r.va != null).length} contrato(s) com VA informado</div></div>`);
+  if(folhaBen.vt && folhaBen.va) cartoes.push(`<div class="kpi-card"><div class="kpi-label">Benefícios (VT + VA)</div><div class="kpi-value">${fmtCur(totVt + totVa)}</div><div class="est-sub">${FOLHA_TOTAL_INCLUI_BENEFICIOS ? 'somados ao total registrado' : 'não somados ao total registrado'}</div></div>`);
+  benEl.style.display = temBen && cartoes.length ? '' : 'none';
+  benEl.style.gridTemplateColumns = `repeat(${Math.max(cartoes.length, 1)},1fr)`;
+  benEl.innerHTML = cartoes.join('');
+  const tab = document.querySelector('#estFolhaContent .est-table');
+  tab.classList.toggle('est-hide-vt', !folhaBen.vt); tab.classList.toggle('est-hide-va', !folhaBen.va);
   document.getElementById('estFolhaStrips').innerHTML = `
     <div class="est-strip"><span>Contratos relacionados</span><strong>${rows.length}</strong></div>
     <div class="est-strip"><span>Com folha informada</span><strong>${comFolha.length}</strong></div>
@@ -1666,7 +1699,7 @@ function estFolhaPaint(){
   // Evolução mensal (últimas 12 competências do período)
   const evoComps = v.comps.slice(-12);
   const evo = evoComps.map(c => {
-    const rs = folhaData.resumo.filter(r => r.periodo === v.periodo && folhaCompKey(r) === c);
+    const rs = folhaData.resumo.filter(r => r.periodo === v.periodo && folhaCompKey(r) === c && (!contratoKey || r.coligada + '|' + r.codigo_origem === contratoKey));
     return {folha: rs.reduce((s, r) => s + (r.valor_folha || 0), 0), fgts: rs.reduce((s, r) => s + (r.fgts || 0), 0), emp: FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? rs.reduce((s, r) => s + (r.emprestimos || 0), 0) : 0};
   });
   if(chartInstances.estFolhaEvolucao) chartInstances.estFolhaEvolucao.destroy();
@@ -1737,19 +1770,22 @@ function renderEstFolhaTable(){
       <td>${r.folha === null ? dash : fmtCur(r.folha)}</td>
       <td>${r.fgts === null ? dash : fmtCur(r.fgts)}</td>
       <td>${r.emp === null ? dash : fmtCur(r.emp)}</td>
+      <td class="ben-vt">${r.vt === null || r.vt === undefined ? dash : fmtCur(r.vt)}</td>
+      <td class="ben-va">${r.va === null || r.va === undefined ? dash : fmtCur(r.va)}</td>
       <td><b>${fmtCur(r.total)}</b></td>
       <td>${folhaFmtVar(r.variacao)}</td>
       <td><span class="est-pill ${r.informado ? 'ok' : 'warn'}">${r.informado ? 'Informado' : 'Não informado'}</span></td>
-    </tr>`).join('') : '<tr><td colspan="8" style="text-align:center; padding:28px; cursor:default;">Nenhum contrato encontrado.</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="10" style="text-align:center; padding:28px; cursor:default;">Nenhum contrato encontrado.</td></tr>';
 }
 
 function exportEstFolhaCsv(){
   if(!folhaView) return;
   const rows = estFolhaTableRows();
   const num = x => x === null ? '' : String(Math.round(x * 100) / 100).replace('.', ',');
-  const lines = [['CONTRATO','COLABORADORES','FOLHA','FGTS','EMPRESTIMOS','TOTAL','VARIACAO_MES_%','SITUACAO'],
-    ...rows.map(r => [r.nome, r.colab === null ? '' : r.colab, num(r.folha), num(r.fgts), num(r.emp), num(r.total), r.variacao === null ? '' : num(r.variacao * 100), r.informado ? 'Informado' : 'Nao informado'])];
-  const csv = '﻿' + lines.map(l => l.map(x => '"' + String(x).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  const lines = [['CONTRATO','COLABORADORES','FOLHA','FGTS','EMPRESTIMOS','VT','VA','TOTAL','VARIACAO_MES_%','SITUACAO'],
+    ...rows.map(r => [r.nome, r.colab === null ? '' : r.colab, num(r.folha), num(r.fgts), num(r.emp), num(r.vt ?? null), num(r.va ?? null), num(r.total), r.variacao === null ? '' : num(r.variacao * 100), r.informado ? 'Informado' : 'Nao informado'])];
+  const drop = [...(folhaBen.vt ? [] : [5]), ...(folhaBen.va ? [] : [6])];  // colunas de benefício não selecionadas
+  const csv = '﻿' + lines.map(l => l.filter((_, i) => !drop.includes(i)).map(x => '"' + String(x).replace(/"/g, '""') + '"').join(';')).join('\r\n');
   const url = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
   const a = document.createElement('a');
   a.href = url; a.download = `folha_${folhaView.comp.slice(0, 7)}.csv`;
@@ -1769,6 +1805,12 @@ function estUpdateHub(){
 
 document.getElementById('estFolhaComp').addEventListener('change', estFolhaPaint);
 document.getElementById('estFolhaPeriodo').addEventListener('change', estFolhaPaint);
+document.getElementById('estFolhaContrato').addEventListener('change', estFolhaPaint);
+[['estBenVt', 'vt'], ['estBenVa', 'va']].forEach(([id, k]) => document.getElementById(id).addEventListener('click', e => {
+  folhaBen[k] = !folhaBen[k];
+  e.currentTarget.classList.toggle('on', folhaBen[k]); e.currentTarget.setAttribute('aria-pressed', folhaBen[k]);
+  if(folhaData.status === 'ok') estFolhaPaint();
+}));
 document.getElementById('btnEstFolhaReload').addEventListener('click', () => { estFolhaState('Carregando dados da folha...'); loadFolha(true).then(estFolhaPaint); });
 document.getElementById('estFolhaSearch').addEventListener('input', renderEstFolhaTable);
 document.getElementById('estFolhaFilter').addEventListener('change', renderEstFolhaTable);
