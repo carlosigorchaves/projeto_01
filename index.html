@@ -536,7 +536,7 @@
             <button type="button" class="ms-btn" id="estContratoBtn" aria-haspopup="true" aria-expanded="false">Todos os contratos ▾</button>
             <div class="ms-panel" id="estContratoPanel" style="display:none;">
               <input type="search" id="estContratoBusca" placeholder="Buscar contrato..." aria-label="Buscar contrato">
-              <div class="ms-actions"><button type="button" id="estContratoTodos">Todos os contratos</button></div>
+              <div class="ms-actions"><button type="button" id="estContratoTodos">Marcar todos</button> <button type="button" id="estContratoNenhum">Desmarcar todos</button></div>
               <div class="ms-list" id="estContratoList"></div>
             </div>
           </div>
@@ -1658,21 +1658,23 @@ function renderEstFolha(){
 
 
 let folhaContratos = new Set();   // vazio = todos os contratos
+let folhaEscolha = false;         // true após 'Desmarcar todos': caixas vazias para escolher alguns
 const contratoOk = k => folhaContratos.size === 0 || folhaContratos.has(k);
 let estContratoChaves = [], estContratoNomes = new Map();
 function estContratoRender(chaves, nomes){
   estContratoChaves = chaves; estContratoNomes = nomes;
   const n = folhaContratos.size;
-  document.getElementById('estContratoBtn').textContent = (n === 0 ? 'Todos os contratos' : n === 1 ? nomes.get([...folhaContratos][0]) : n + ' contratos selecionados') + ' ▾';
+  document.getElementById('estContratoBtn').textContent = (n === 0 ? (folhaEscolha ? 'Escolha os contratos' : 'Todos os contratos') : n === 1 ? nomes.get([...folhaContratos][0]) : n + ' contratos selecionados') + ' ▾';
   const q = (document.getElementById('estContratoBusca').value || '').toLowerCase().trim();
   const list = document.getElementById('estContratoList');
   list.innerHTML = chaves.filter(k => !q || nomes.get(k).toLowerCase().includes(q)).map(k =>
-    `<label><input type="checkbox" data-k="${estEsc(k)}" ${n === 0 || folhaContratos.has(k) ? 'checked' : ''}> <span>${estEsc(nomes.get(k))}</span></label>`).join('') || '<div class="est-sub">Nenhum contrato encontrado.</div>';
+    `<label><input type="checkbox" data-k="${estEsc(k)}" ${(n === 0 && !folhaEscolha) || folhaContratos.has(k) ? 'checked' : ''}> <span>${estEsc(nomes.get(k))}</span></label>`).join('') || '<div class="est-sub">Nenhum contrato encontrado.</div>';
 }
 function estContratoToggle(k){
-  if(folhaContratos.size === 0) estContratoChaves.forEach(c => folhaContratos.add(c));
+  if(folhaContratos.size === 0 && !folhaEscolha) estContratoChaves.forEach(c => folhaContratos.add(c));
   if(folhaContratos.has(k)) folhaContratos.delete(k); else folhaContratos.add(k);
-  if(folhaContratos.size === estContratoChaves.length || folhaContratos.size === 0) folhaContratos.clear();
+  folhaEscolha = folhaContratos.size === 0 ? (folhaEscolha || true) : true;
+  if(folhaContratos.size === estContratoChaves.length){ folhaContratos.clear(); folhaEscolha = false; }
   estFolhaPaint();
 }
 
@@ -1699,7 +1701,7 @@ function estFolhaPaint(){
   const nomes = new Map(completa.rows.map(r => [r.key, r.nome]));
   const chaves = [...nomes.keys()].sort((a, b) => nomes.get(a).localeCompare(nomes.get(b), 'pt-BR'));
   [...folhaContratos].forEach(k => { if(!nomes.has(k)) folhaContratos.delete(k); });
-  if(folhaContratos.size === chaves.length) folhaContratos.clear();
+  if(folhaContratos.size === chaves.length){ folhaContratos.clear(); folhaEscolha = false; }
   estContratoRender(chaves, nomes);
   folhaView = folhaContratos.size ? folhaBuildView(compSel.value, perSel.value, folhaContratos) : completa;
   const v = folhaView, rows = v.rows;
@@ -2040,7 +2042,8 @@ document.getElementById('estFolhaPeriodo').addEventListener('change', estFolhaPa
   document.addEventListener('keydown', e => { if(e.key === 'Escape') close(); });
   document.getElementById('estContratoList').addEventListener('change', e => { if(e.target.dataset && e.target.dataset.k !== undefined) estContratoToggle(e.target.dataset.k); });
   document.getElementById('estContratoBusca').addEventListener('input', () => estContratoRender(estContratoChaves, estContratoNomes));
-  document.getElementById('estContratoTodos').addEventListener('click', () => { folhaContratos.clear(); estFolhaPaint(); });
+  document.getElementById('estContratoTodos').addEventListener('click', () => { folhaContratos.clear(); folhaEscolha = false; estFolhaPaint(); });
+  document.getElementById('estContratoNenhum').addEventListener('click', () => { folhaContratos.clear(); folhaEscolha = true; estFolhaPaint(); });
 })();
 [['estBenVt', 'vt'], ['estBenVa', 'va']].forEach(([id, k]) => document.getElementById(id).addEventListener('click', e => {
   folhaBen[k] = !folhaBen[k];
