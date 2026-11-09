@@ -250,15 +250,11 @@
     <h2 id="authTitle">Controle de Gastos</h2>
     <p>Se Liga Instituto Social · Anexo V</p>
 
-    <input type="text" id="signupName" placeholder="Seu nome" autocomplete="name" style="display:none;">
     <input type="email" id="loginEmail" placeholder="E-mail" autocomplete="username">
     <input type="password" id="loginPassword" placeholder="Senha" autocomplete="current-password">
     <p class="login-error" id="loginError"></p>
     <button class="primary" id="btnLogin">Entrar</button>
-    <p class="hint" style="margin-top:14px;">
-      <span id="authToggleText">Ainda não tem conta?</span>
-      <a href="#" id="btnToggleAuthMode" style="color:var(--brand-dark); font-weight:600;">Criar conta</a>
-    </p>
+    <p class="hint" style="margin-top:14px;">Não tem acesso? Peça ao administrador do sistema para criar o seu usuário.</p>
   </div>
 </div>
 
@@ -774,8 +770,18 @@
 
       <div id="usuariosSection">
         <div class="card" id="addUserCard">
-          <div class="card-header"><p class="card-title">Como entram novos usuários</p></div>
-          <p class="hint">Não existe mais cadastro feito pelo administrador aqui — cada pessoa cria a própria conta na tela de login, clicando em "Criar conta". A primeira pessoa a se cadastrar no sistema vira administradora automaticamente; as seguintes entram com o perfil "Usuário Padrão". Você pode trocar o perfil de acesso ou revogar o acesso de qualquer um na lista abaixo.</p>
+          <div class="card-header"><p class="card-title">Criar novo usuário</p></div>
+          <p class="hint" id="addUserHint">Somente o administrador cria usuários. Defina o perfil de acesso e uma senha inicial (mínimo 8 caracteres) e combine com a pessoa de trocar a senha no primeiro acesso.</p>
+          <div id="addUserForm" style="display:none;">
+            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;">
+              <input type="text" id="newUserName" placeholder="Nome" autocomplete="off" style="flex:1 1 180px;">
+              <input type="email" id="newUserEmail" placeholder="E-mail" autocomplete="off" style="flex:1 1 220px;">
+              <input type="password" id="newUserPassword" placeholder="Senha inicial" autocomplete="new-password" style="flex:1 1 160px;">
+              <select id="newUserProfile" style="flex:1 1 180px;"></select>
+              <button class="primary" id="btnAddUser" type="button">Criar usuário</button>
+            </div>
+            <p class="login-error" id="addUserMsg" style="display:none;"></p>
+          </div>
         </div>
 
         <p class="hint" id="notAdminHint" style="display:none;">Você não tem permissão para alterar perfis ou revogar acesso de usuários.</p>
@@ -3235,23 +3241,7 @@ function refreshAllContractSelects(){
 /* ===================== LOGIN & USUÁRIOS (Supabase Auth) ===================== */
 let accounts = [];
 let currentUser = null; // {id, name, email, profileId, active}
-let authMode = 'login'; // 'login' | 'signup'
-
-function setAuthMode(mode){
-  authMode = mode;
-  const isSignup = mode === 'signup';
-  document.getElementById('signupName').style.display = isSignup ? 'block' : 'none';
-  document.getElementById('authTitle').textContent = isSignup ? 'Criar conta' : 'Controle de Gastos';
-  document.getElementById('btnLogin').textContent = isSignup ? 'Criar conta' : 'Entrar';
-  document.getElementById('authToggleText').textContent = isSignup ? 'Já tem conta?' : 'Ainda não tem conta?';
-  document.getElementById('btnToggleAuthMode').textContent = isSignup ? 'Entrar' : 'Criar conta';
-  document.getElementById('loginError').style.display = 'none';
-}
-
-document.getElementById('btnToggleAuthMode').addEventListener('click', e => {
-  e.preventDefault();
-  setAuthMode(authMode === 'login' ? 'signup' : 'login');
-});
+function setAuthMode(){ document.getElementById('loginError').style.display = 'none'; }
 
 async function fetchProfile(userId){
   const { data, error } = await sb.from('profiles').select('*').eq('id', userId).single();
@@ -3284,26 +3274,10 @@ async function doLogin(){
   if(!email || !password){ err.textContent = 'Informe e-mail e senha.'; err.style.color='var(--danger)'; err.style.display = 'block'; return; }
 
   try{
-    if(authMode === 'signup'){
-      const name = document.getElementById('signupName').value.trim();
-      if(!name){ err.textContent = 'Informe seu nome.'; err.style.color='var(--danger)'; err.style.display = 'block'; return; }
-      if(password.length < 6){ err.textContent = 'A senha precisa ter pelo menos 6 caracteres.'; err.style.color='var(--danger)'; err.style.display = 'block'; return; }
-      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name } } });
-      if(error) throw error;
-      if(!data.session){
-        err.style.display = 'block';
-        err.style.color = 'var(--ok)';
-        err.textContent = 'Conta criada! Verifique seu e-mail para confirmar antes de entrar.';
-        return;
-      }
-      const profile = await fetchProfile(data.user.id);
-      await enterApp(profile);
-    } else {
-      const { data, error } = await sb.auth.signInWithPassword({ email, password });
-      if(error) throw error;
-      const profile = await fetchProfile(data.user.id);
-      await enterApp(profile);
-    }
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if(error) throw error;
+    const profile = await fetchProfile(data.user.id);
+    await enterApp(profile);
   }catch(e){
     err.style.color = 'var(--danger)';
     err.textContent = e.message || 'Não foi possível entrar.';
@@ -3345,6 +3319,17 @@ function renderUserPage(){
 
   document.getElementById('usuariosSection').style.display = canView ? 'block' : 'none';
   document.getElementById('notAdminHint').style.display = canEdit ? 'none' : 'block';
+  const souAdmin = !!currentUser && currentUser.profileId === 'admin-full';
+  document.getElementById('addUserForm').style.display = souAdmin ? '' : 'none';
+  document.getElementById('addUserHint').textContent = souAdmin
+    ? 'Somente o administrador cria usuários. Defina o perfil de acesso e uma senha inicial (mínimo 8 caracteres) e combine com a pessoa de trocar a senha no primeiro acesso.'
+    : 'A criação de usuários é feita somente pelo administrador do sistema.';
+  const selPerfil = document.getElementById('newUserProfile');
+  if(souAdmin && selPerfil.options.length !== accessProfiles.length){
+    selPerfil.innerHTML = accessProfiles.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    const padrao = accessProfiles.find(p => p.id !== 'admin-full' && /padr/i.test(p.name)) || accessProfiles.find(p => p.id !== 'admin-full');
+    if(padrao) selPerfil.value = padrao.id;
+  }
 
   if(!canView) return;
 
@@ -3548,6 +3533,33 @@ function renderProfilesPage(){
     });
   });
 }
+
+document.getElementById('btnAddUser').addEventListener('click', async () => {
+  const msg = document.getElementById('addUserMsg'), btn = document.getElementById('btnAddUser');
+  const show = (t, ok) => { msg.textContent = t; msg.style.color = ok ? 'var(--ok)' : 'var(--danger)'; msg.style.display = 'block'; };
+  if(!currentUser || currentUser.profileId !== 'admin-full') return show('Somente o administrador pode criar usuários.', false);
+  const name = document.getElementById('newUserName').value.trim(), email = document.getElementById('newUserEmail').value.trim();
+  const password = document.getElementById('newUserPassword').value, profile_id = document.getElementById('newUserProfile').value;
+  if(!name || !email) return show('Informe nome e e-mail.', false);
+  if(password.length < 8) return show('A senha inicial precisa ter pelo menos 8 caracteres.', false);
+  btn.disabled = true;
+  try{
+    const { data, error } = await sb.functions.invoke('admin-create-user', { body: { name, email, password, profile_id } });
+    let erro = data && data.error;
+    if(error && !erro){
+      try{ const j = await error.context.json(); erro = j.error; }catch(_){ erro = error.message; }
+    }
+    if(erro) throw new Error(erro);
+    ['newUserName','newUserEmail','newUserPassword'].forEach(id => document.getElementById(id).value = '');
+    show('Usuário criado: ' + email + '. Passe a senha inicial diretamente à pessoa.', true);
+    await loadUsers();
+    renderUserPage();
+  }catch(e){
+    show(e.message || 'Não foi possível criar o usuário.', false);
+  }finally{
+    btn.disabled = false;
+  }
+});
 
 document.getElementById('btnAddProfile').addEventListener('click', async () => {
   if(!hasAccess('config', 'edit')) return;
