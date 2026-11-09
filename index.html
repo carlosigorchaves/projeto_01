@@ -218,7 +218,15 @@
   .est-chip{display:inline-block; font-size:11.5px; color:var(--text-2); background:#fff; border:1px solid var(--border); border-radius:20px; padding:4px 10px;}
   .est-state{background:#fff; border:1px dashed var(--border); border-radius:var(--radius); padding:36px 24px; text-align:center; color:var(--text-2); font-size:13px; line-height:1.7; margin-bottom:20px;}
   .est-note{font-size:11.5px; color:var(--text-3); line-height:1.6;}
-  .est-toggle{font:inherit; font-size:12px; font-weight:600; padding:5px 12px; border-radius:20px; border:1px solid var(--border); background:#fff; color:var(--text-2); cursor:pointer;}
+  .ms{position:relative;display:inline-block}
+.ms-btn{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.ms-panel{position:absolute;z-index:30;top:calc(100% + 4px);left:0;min-width:300px;max-width:380px;background:var(--surface,#fff);border:1px solid var(--border,#d6dbe3);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.16);padding:10px}
+.ms-panel input[type=search]{width:100%;box-sizing:border-box;margin-bottom:6px}
+.ms-actions{margin-bottom:6px}
+.ms-actions button{font-size:12px;padding:3px 8px}
+.ms-list{max-height:260px;overflow:auto}
+.ms-list label{display:flex;gap:8px;align-items:center;padding:4px 2px;cursor:pointer;font-size:13px}
+.est-toggle{font:inherit; font-size:12px; font-weight:600; padding:5px 12px; border-radius:20px; border:1px solid var(--border); background:#fff; color:var(--text-2); cursor:pointer;}
   .est-toggle.on{background:var(--brand-light); border-color:var(--brand); color:var(--brand-dark);}
   .est-tabs{display:flex; gap:6px; margin:0 0 18px; border-bottom:1px solid var(--border);}
   .est-tab{font:inherit; font-size:13px; font-weight:600; padding:9px 18px; border:0; background:none; color:var(--text-3); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px;}
@@ -517,9 +525,21 @@
           <label>Benefícios</label>
           <button type="button" class="est-toggle on" id="estBenVt" aria-pressed="true" title="Mostrar/ocultar VT">VT</button>
           <button type="button" class="est-toggle on" id="estBenVa" aria-pressed="true" title="Mostrar/ocultar VA">VA</button>
-          <label for="estFolhaContrato">Contrato</label>
-          <select id="estFolhaContrato" style="max-width:260px;"></select>
-          <span id="estFolhaPeriodoWrap" style="display:none;"><label for="estFolhaPeriodo">Período</label> <select id="estFolhaPeriodo"></select></span>
+          <label for="estFolhaPeriodo">Período</label>
+          <select id="estFolhaPeriodo">
+            <option value="MENSAL">02 - Folha mensal</option>
+            <option value="ADIANTAMENTO">01 - Adiantamento</option>
+            <option value="13O">03 - 13º salário</option>
+          </select>
+          <label>Contratos</label>
+          <div class="ms" id="estContratoMs">
+            <button type="button" class="ms-btn" id="estContratoBtn" aria-haspopup="true" aria-expanded="false">Todos os contratos ▾</button>
+            <div class="ms-panel" id="estContratoPanel" style="display:none;">
+              <input type="search" id="estContratoBusca" placeholder="Buscar contrato..." aria-label="Buscar contrato">
+              <div class="ms-actions"><button type="button" id="estContratoTodos">Todos os contratos</button></div>
+              <div class="ms-list" id="estContratoList"></div>
+            </div>
+          </div>
           <button id="btnEstFolhaReload" title="Buscar os dados novamente">Atualizar</button>
         </div>
       </div>
@@ -1589,7 +1609,8 @@ function estFillSelect(sel, values, labelFn){
 }
 
 // Monta as linhas (uma por contrato/unidade) da competência e período escolhidos.
-function folhaBuildView(comp, periodo, contratoKey){
+function folhaBuildView(comp, periodo, contratos){
+  const selC = k => !contratos || contratos.size === 0 || contratos.has(k);
   const unidMap = new Map(folhaData.unidades.map(u => [u.coligada + '|' + u.codigo_origem, u]));
   const nomeDe = (col, cod) => { const u = unidMap.get(col + '|' + cod); return (u && (u.nome_gerencial || u.descricao_origem)) || cod; };
 
@@ -1613,13 +1634,13 @@ function folhaBuildView(comp, periodo, contratoKey){
       total: folhaTotalOf(r.valor_folha, r.fgts, r.emprestimos, r.vale_transporte, r.vale_alimentacao), baseFolha: r.base_folha});
   });
   let todas = [...rows.values()];
-  if(contratoKey) todas = todas.filter(r => r.key === contratoKey);
+  todas = todas.filter(r => selC(r.key));
   const list = todas.map(r => {
     const prev = prevMap.get(r.key);
     const pb = prevBenMap.get(r.key) || {};
     return {...r, informado: r.temLinha && r.folha !== null, variacao: (prev && prev > 0 && r.temLinha) ? (r.total - prev) / prev : null, prevVt: pb.vt ?? null, prevVa: pb.va ?? null};
   });
-  const prevTotal = prevComp ? [...prevMap.entries()].filter(([k]) => !contratoKey || k === contratoKey).reduce((s, [, v]) => s + v, 0) : null;
+  const prevTotal = prevComp ? [...prevMap.entries()].filter(([k]) => selC(k)).reduce((s, [, v]) => s + v, 0) : null;
   const atualizadoEm = atual.map(r => r.atualizado_em).filter(Boolean).sort().pop() || (folhaData.ultimaCarga && folhaData.ultimaCarga.finalizada_em) || null;
   return {comp, periodo, rows: list, prevComp, prevTotal, comps, atualizadoEm};
 }
@@ -1635,6 +1656,26 @@ function renderEstFolha(){
   loadFolha(false).then(estFolhaPaint);
 }
 
+
+let folhaContratos = new Set();   // vazio = todos os contratos
+const contratoOk = k => folhaContratos.size === 0 || folhaContratos.has(k);
+let estContratoChaves = [], estContratoNomes = new Map();
+function estContratoRender(chaves, nomes){
+  estContratoChaves = chaves; estContratoNomes = nomes;
+  const n = folhaContratos.size;
+  document.getElementById('estContratoBtn').textContent = (n === 0 ? 'Todos os contratos' : n === 1 ? nomes.get([...folhaContratos][0]) : n + ' contratos selecionados') + ' ▾';
+  const q = (document.getElementById('estContratoBusca').value || '').toLowerCase().trim();
+  const list = document.getElementById('estContratoList');
+  list.innerHTML = chaves.filter(k => !q || nomes.get(k).toLowerCase().includes(q)).map(k =>
+    `<label><input type="checkbox" data-k="${estEsc(k)}" ${n === 0 || folhaContratos.has(k) ? 'checked' : ''}> <span>${estEsc(nomes.get(k))}</span></label>`).join('') || '<div class="est-sub">Nenhum contrato encontrado.</div>';
+}
+function estContratoToggle(k){
+  if(folhaContratos.size === 0) estContratoChaves.forEach(c => folhaContratos.add(c));
+  if(folhaContratos.has(k)) folhaContratos.delete(k); else folhaContratos.add(k);
+  if(folhaContratos.size === estContratoChaves.length || folhaContratos.size === 0) folhaContratos.clear();
+  estFolhaPaint();
+}
+
 function estFolhaPaint(){
   const st = folhaData.status;
   const chip = document.getElementById('estFolhaUpdated');
@@ -1643,28 +1684,29 @@ function estFolhaPaint(){
   if(st === 'empty' || !folhaData.resumo.length){ chip.textContent = 'Atualização: —'; return estFolhaState('<b>Ainda não há dados de folha.</b><br>Assim que a consulta do sistema de folha fizer a primeira carga, os painéis aparecem aqui.'); }
   if(st !== 'ok') return;
 
-  const comps = [...new Set(folhaData.resumo.map(folhaCompKey))].sort().reverse();
-  const periodos = [...new Set(folhaData.resumo.map(r => r.periodo))].sort();
-  const compSel = document.getElementById('estFolhaComp'), perSel = document.getElementById('estFolhaPeriodo');
+  const perSel = document.getElementById('estFolhaPeriodo'), compSel = document.getElementById('estFolhaComp');
+  const comps = [...new Set(folhaData.resumo.filter(r => r.periodo === perSel.value).map(folhaCompKey))].sort().reverse();
+  if(!comps.length){
+    chip.textContent = 'Atualização: —';
+    estFillSelect(compSel, [], folhaCompLabel);
+    folhaView = null;
+    return estFolhaState(`<b>Ainda não há dados de "${estEsc(perSel.options[perSel.selectedIndex].text)}".</b><br>Assim que a carga do sistema de folha trouxer esse período, os painéis aparecem aqui. Escolha outro período para ver os dados já carregados.`);
+  }
   estFillSelect(compSel, comps, folhaCompLabel);
-  const hadPeriodo = perSel.options.length > 0;
-  estFillSelect(perSel, periodos, v => v);
-  if(!hadPeriodo && periodos.includes('MENSAL')) perSel.value = 'MENSAL';
-  document.getElementById('estFolhaPeriodoWrap').style.display = periodos.length > 1 ? '' : 'none';
+  if(!comps.includes(compSel.value)) compSel.value = comps[0];
 
   const completa = folhaBuildView(compSel.value, perSel.value, null);
   const nomes = new Map(completa.rows.map(r => [r.key, r.nome]));
   const chaves = [...nomes.keys()].sort((a, b) => nomes.get(a).localeCompare(nomes.get(b), 'pt-BR'));
-  const contSel = document.getElementById('estFolhaContrato');
-  estFillSelect(contSel, ['', ...chaves], k => k === '' ? 'Todos os contratos' : nomes.get(k));
-  if(contSel.value && !nomes.has(contSel.value)) contSel.value = '';
-  const contratoKey = contSel.value || null;
-  folhaView = contratoKey ? folhaBuildView(compSel.value, perSel.value, contratoKey) : completa;
+  [...folhaContratos].forEach(k => { if(!nomes.has(k)) folhaContratos.delete(k); });
+  if(folhaContratos.size === chaves.length) folhaContratos.clear();
+  estContratoRender(chaves, nomes);
+  folhaView = folhaContratos.size ? folhaBuildView(compSel.value, perSel.value, folhaContratos) : completa;
   const v = folhaView, rows = v.rows;
   estFolhaState('');
   estFolhaApplyTab();
 
-  document.getElementById('estFolhaSub').textContent = contratoKey ? `${folhaCompLabel(v.comp)} · ${rows[0] ? rows[0].nome : ''}` : `${folhaCompLabel(v.comp)} · ${rows.length} contrato(s) relacionado(s)`;
+  document.getElementById('estFolhaSub').textContent = `${perSel.options[perSel.selectedIndex].text} · ${folhaCompLabel(v.comp)} · ` + (folhaContratos.size === 1 ? (rows[0] ? rows[0].nome : '') : `${rows.length} contrato(s)${folhaContratos.size ? ' selecionado(s)' : ' relacionado(s)'}`);
   chip.textContent = v.atualizadoEm ? 'Atualização: ' + new Date(v.atualizadoEm).toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short'}) : 'Atualização: —';
 
   const sum = k => rows.reduce((s, r) => s + (r[k] || 0), 0);
@@ -1746,7 +1788,7 @@ function estFolhaPaint(){
   // Evolução mensal (últimas 12 competências do período)
   const evoComps = v.comps.slice(-12);
   const evo = evoComps.map(c => {
-    const rs = folhaData.resumo.filter(r => r.periodo === v.periodo && folhaCompKey(r) === c && (!contratoKey || r.coligada + '|' + r.codigo_origem === contratoKey));
+    const rs = folhaData.resumo.filter(r => r.periodo === v.periodo && folhaCompKey(r) === c && contratoOk(r.coligada + '|' + r.codigo_origem));
     return {folha: rs.reduce((s, r) => s + (r.valor_folha || 0), 0), fgts: rs.reduce((s, r) => s + (r.fgts || 0), 0), emp: FOLHA_TOTAL_INCLUI_EMPRESTIMOS ? rs.reduce((s, r) => s + (r.emprestimos || 0), 0) : 0,
       ben: FOLHA_TOTAL_INCLUI_BENEFICIOS ? rs.reduce((s, r) => s + (folhaBen.vt ? (r.vale_transporte || 0) : 0) + (folhaBen.va ? (r.vale_alimentacao || 0) : 0), 0) : 0};
   });
@@ -1790,7 +1832,7 @@ function estFolhaPaint(){
   document.getElementById('estFolhaInsight').innerHTML = `<strong>Leitura executiva</strong>${estEsc(txt)}`;
   document.getElementById('estFolhaNote').textContent = 'Células sem valor significam informação ausente, não zero confirmado. Fonte: carga do sistema de folha (' + (folhaData.ultimaCarga ? folhaData.ultimaCarga.fonte : 'origem não registrada') + ').';
 
-  renderEstBen(v, contratoKey, evoComps, totFolha);
+  renderEstBen(v, folhaContratos, evoComps, totFolha);
   renderEstFolhaTable();
 }
 
@@ -1806,7 +1848,7 @@ const benSel = r => (folhaBen.vt ? (r.vt || 0) : 0) + (folhaBen.va ? (r.va || 0)
 const benTemDado = r => (folhaBen.vt && r.vt != null) || (folhaBen.va && r.va != null);
 let estBenRows = [];
 
-function renderEstBen(v, contratoKey, evoComps, totFolha){
+function renderEstBen(v, contratos, evoComps, totFolha){
   const rows = v.rows;
   const comDado = rows.filter(r => r.vt != null || r.va != null);
   const vazio = document.getElementById('estBenEmpty'), corpo = document.getElementById('estBenBody');
@@ -1868,7 +1910,7 @@ function renderEstBen(v, contratoKey, evoComps, totFolha){
 
   // Evolução mensal
   const evo = evoComps.map(c => {
-    const rs = folhaData.resumo.filter(r => r.periodo === v.periodo && folhaCompKey(r) === c && (!contratoKey || r.coligada + '|' + r.codigo_origem === contratoKey));
+    const rs = folhaData.resumo.filter(r => r.periodo === v.periodo && folhaCompKey(r) === c && contratoOk(r.coligada + '|' + r.codigo_origem));
     return {vt: rs.reduce((s, r) => s + (r.vale_transporte || 0), 0), va: rs.reduce((s, r) => s + (r.vale_alimentacao || 0), 0)};
   });
   if(chartInstances.estBenEvolucao) chartInstances.estBenEvolucao.destroy();
@@ -1990,7 +2032,16 @@ function estUpdateHub(){
 
 document.getElementById('estFolhaComp').addEventListener('change', estFolhaPaint);
 document.getElementById('estFolhaPeriodo').addEventListener('change', estFolhaPaint);
-document.getElementById('estFolhaContrato').addEventListener('change', estFolhaPaint);
+(function(){
+  const btn = document.getElementById('estContratoBtn'), panel = document.getElementById('estContratoPanel');
+  const close = () => { panel.style.display = 'none'; btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', e => { e.stopPropagation(); const open = panel.style.display === 'none'; panel.style.display = open ? '' : 'none'; btn.setAttribute('aria-expanded', String(open)); });
+  document.addEventListener('click', e => { if(!document.getElementById('estContratoMs').contains(e.target)) close(); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') close(); });
+  document.getElementById('estContratoList').addEventListener('change', e => { if(e.target.dataset && e.target.dataset.k !== undefined) estContratoToggle(e.target.dataset.k); });
+  document.getElementById('estContratoBusca').addEventListener('input', () => estContratoRender(estContratoChaves, estContratoNomes));
+  document.getElementById('estContratoTodos').addEventListener('click', () => { folhaContratos.clear(); estFolhaPaint(); });
+})();
 [['estBenVt', 'vt'], ['estBenVa', 'va']].forEach(([id, k]) => document.getElementById(id).addEventListener('click', e => {
   folhaBen[k] = !folhaBen[k];
   e.currentTarget.classList.toggle('on', folhaBen[k]); e.currentTarget.setAttribute('aria-pressed', folhaBen[k]);
