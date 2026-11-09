@@ -784,7 +784,7 @@
           </div>
         </div>
 
-        <p class="hint" id="notAdminHint" style="display:none;">Você não tem permissão para alterar perfis ou revogar acesso de usuários.</p>
+        <p class="hint" id="notAdminHint" style="display:none;">Você não tem permissão para alterar perfis ou bloquear acesso de usuários.</p>
 
         <div class="card">
           <div class="card-header"><p class="card-title">Usuários cadastrados</p></div>
@@ -3254,7 +3254,7 @@ async function enterApp(profile){
     await sb.auth.signOut();
     const err = document.getElementById('loginError');
     err.style.color = 'var(--danger)';
-    err.textContent = 'Seu acesso foi revogado. Fale com o administrador do sistema.';
+    err.textContent = 'Seu acesso está bloqueado. Fale com o administrador do sistema.';
     err.style.display = 'block';
     return;
   }
@@ -3346,7 +3346,7 @@ function renderUserPage(){
       profileCell = `<span class="badge ${profile && profile.id==='admin-full' ? 'blue' : 'gray'}">${profile ? profile.name : '— sem perfil —'}</span>`;
     }
     const statusCell = acc.active === false
-      ? '<span class="badge danger">Revogado</span>'
+      ? '<span class="badge danger">Bloqueado</span>'
       : '<span class="badge ok">Ativo</span>';
     let actions = '';
     if(canEdit){
@@ -3354,8 +3354,11 @@ function renderUserPage(){
     }
     if(canEdit && !isSelf){
       actions += acc.active === false
-        ? `<button class="small" data-restore="${acc.id}">Restaurar</button> `
-        : `<button class="small ghost-danger" data-revoke="${acc.id}">Revogar</button> `;
+        ? `<button class="small" data-restore="${acc.id}">Desbloquear</button> `
+        : `<button class="small ghost-danger" data-revoke="${acc.id}">Bloquear</button> `;
+    }
+    if(currentUser && currentUser.profileId === 'admin-full'){
+      actions += `<button class="small" data-resetpw="${acc.id}">Redefinir senha</button> `;
     }
     if(canDelete && !isSelf){
       actions += `<button class="small ghost-danger" data-deluser="${acc.id}">Remover</button>`;
@@ -3437,6 +3440,28 @@ function renderUserPage(){
   };
   wireStatusButton('[data-revoke]', false);
   wireStatusButton('[data-restore]', true);
+
+  tbody.querySelectorAll('[data-resetpw]').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      const id = e.target.dataset.resetpw;
+      const alvo = accounts.find(a => a.id === id);
+      const nova = prompt(`Nova senha para "${alvo ? alvo.name : ''}" (mínimo 8 caracteres).\nPasse a nova senha diretamente à pessoa.`);
+      if(nova === null) return;
+      if(nova.length < 8){ alert('A senha precisa ter pelo menos 8 caracteres.'); return; }
+      e.target.disabled = true;
+      try{
+        const { data, error } = await sb.functions.invoke('admin-reset-password', { body: { user_id: id, password: nova } });
+        let erro = data && data.error;
+        if(error && !erro){ try{ erro = (await error.context.json()).error; }catch(_){ erro = error.message; } }
+        if(erro) throw new Error(erro);
+        alert('Senha redefinida. Passe a nova senha à pessoa.');
+      }catch(err){
+        alert(err.message || 'Não foi possível redefinir a senha.');
+      }finally{
+        e.target.disabled = false;
+      }
+    });
+  });
 
   tbody.querySelectorAll('[data-deluser]').forEach(btn => {
     btn.addEventListener('click', async e => {
