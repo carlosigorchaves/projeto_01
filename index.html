@@ -549,9 +549,11 @@
       </div>
       <div style="margin:-6px 0 16px; display:flex; gap:8px; flex-wrap:wrap;">
         <span class="est-chip" id="estEfetivoBase">Base de dados: —</span>
-        <span class="est-chip" id="estEfetivoFonte" style="background:var(--warn-bg); color:var(--warn);">Dados de exemplo</span>
+        <span class="est-chip" id="estEfetivoFonte" style="background:var(--warn-bg); color:var(--warn);">Aguardando a primeira carga</span>
       </div>
 
+      <div id="efVazio" class="est-state" style="display:none;"><b>Ainda não há dados de efetivo.</b><br>Assim que a consulta SLIGA.0008 do RM fizer a primeira carga, o painel mostra aqui os funcionários por unidade e por situação.</div>
+      <div id="efConteudo">
       <div class="card" style="margin-bottom:16px;">
         <div class="est-tools" style="flex-wrap:wrap; gap:10px 14px; align-items:flex-end;">
           <div class="ef-f"><label>Unidades</label><div class="ms" id="efMsUn"></div></div>
@@ -592,6 +594,7 @@
           <thead><tr><th>Unidade</th><th>Funcionários</th><th>A · Ativos</th><th>Z · Admissão próx. mês</th><th>F · Férias</th><th>V · Aviso prévio</th><th>Outras</th><th>% do efetivo</th></tr></thead>
           <tbody id="efBody"></tbody>
         </table></div>
+      </div>
       </div>
     </div>
 
@@ -2130,39 +2133,11 @@ const EFETIVO_SITUACOES = [
 const EFETIVO_OUTRA = {cod:'?', nome:'Outras situações', cor:'#9CA3AF'};
 const efSitInfo = cod => EFETIVO_SITUACOES.find(s => s.cod === cod) || {cod, nome: 'Situação ' + cod, cor: EFETIVO_OUTRA.cor};
 
-// Dados de exemplo no mesmo formato da futura carga do RM: UMA LINHA POR COLABORADOR (sem nome nem CPF).
-// Quando a SLIGA.0008 estiver ligada, só esta função muda (passa a ler do Supabase).
-function efetivoExemplo(){
-  const topo = [['Hospital Geral de Eunápolis',374],['Hospital Central do Exército',340],['Fiocruz',225],['HMMQ',102],['ISSL BR CT Imagem',83],
-    ['Comando da Aeronáutica (Limpeza)',80],['CETHID',65],['Hospital Geral do Exército',56],['Rioprevidência LT I',33],['Comando da Aeronáutica (Gestoria)',29]];
-  const resto = [28,27,26,26,25,25,24,24,24,24,24,23,23,23,23,23,22,22,22,22,21,21,21,20,20,20,19,19,18,18,17,16];
-  const unidades = topo.concat(resto.map((q, i) => ['Unidade de exemplo ' + String(i + 11).padStart(2, '0'), q]))
-    .map(([nome, qtd], i) => ({codigo: '01.' + String(i + 1).padStart(3, '0'), nome, qtd}));
-  const total = unidades.reduce((s, u) => s + u.qtd, 0);
-  const alvo = {Z: 29, F: 34, V: 27};
-  const aloc = {Z: {}, F: {}, V: {}};
-  Object.keys(alvo).forEach((cod, k) => {
-    const cotas = unidades.map((u, i) => { const x = u.qtd * alvo[cod] / total; return {i, base: Math.floor(x), resto: x - Math.floor(x) + ((i + k * 7) % 5) * 1e-6}; });
-    let falta = alvo[cod] - cotas.reduce((s, c) => s + c.base, 0);
-    cotas.slice().sort((a, b) => b.resto - a.resto).forEach(c => { if(falta > 0){ c.base++; falta--; } });
-    cotas.forEach(c => { aloc[cod][c.i] = c.base; });
-  });
-  // gerador pseudo-aleatório fixo: o exemplo é sempre o mesmo
-  let seed = 20261112; const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
-  const iso = d => d.toISOString().slice(0, 10);
-  const dia = (ini, fim) => iso(new Date(Date.UTC(ini[0], ini[1] - 1, ini[2]) + Math.floor(rnd() * (Date.UTC(fim[0], fim[1] - 1, fim[2]) - Date.UTC(ini[0], ini[1] - 1, ini[2])))));
-  const rows = []; let n = 0;
-  unidades.forEach((u, i) => {
-    [['A', u.qtd - aloc.Z[i] - aloc.F[i] - aloc.V[i]], ['Z', aloc.Z[i]], ['F', aloc.F[i]], ['V', aloc.V[i]]].forEach(([sit, qtd]) => {
-      for(let k = 0; k < qtd; k++){
-        let adm, dem = null;
-        if(sit === 'Z') adm = '2026-12-01';
-        else { adm = dia([2018, 1, 1], [2026, 11, 10]); if(sit === 'V') dem = dia([2026, 11, 13], [2026, 12, 20]); }
-        rows.push({chapa: String(++n).padStart(6, '0'), codigo_origem: u.codigo, nome: u.nome, situacao: sit, admissao: adm, demissao: dem});
-      }
-    });
-  });
-  return {dataBase: '2026-11-12', fonte: 'exemplo', rows};
+// Quando a carga do RM (SLIGA.0008) estiver ligada, esta função passa a ler do Supabase.
+// Formato esperado: {dataBase:'AAAA-MM-DD', fonte:'rm', rows:[{chapa, codigo_origem, nome, situacao, admissao, demissao}]}
+// Enquanto não houver carga, o painel mostra um aviso em vez de números.
+function efetivoCarregar(){
+  return {dataBase: null, fonte: 'vazio', rows: []};
 }
 
 // Soma a partir das linhas (um colaborador por linha). Os totais nascem aqui: nada fica gravado em duplicidade.
@@ -2265,14 +2240,20 @@ function efetivoPrepararFiltros(){
 }
 
 function renderEstEfetivo(){
-  if(!efetivoData) efetivoData = efetivoExemplo();
+  if(!efetivoData) efetivoData = efetivoCarregar();
+  const vazio = !efetivoData.rows.length;
+  document.getElementById('efVazio').style.display = vazio ? '' : 'none';
+  document.getElementById('efConteudo').style.display = vazio ? 'none' : '';
+  document.getElementById('estEfetivoFonte').style.display = vazio ? '' : 'none';
+  document.getElementById('estEfetivoBase').textContent = 'Base de dados: —';
+  if(vazio){ efetivoView = null; ['efTop', 'efSit'].forEach(k => { if(chartInstances[k]){ chartInstances[k].destroy(); delete chartInstances[k]; } }); return; }
   efetivoPrepararFiltros();
   const filtradas = efetivoLinhasFiltradas();
   efetivoView = efetivoBuildView(filtradas);
   const v = efetivoView;
   const [y, m, d] = efetivoData.dataBase.split('-');
   document.getElementById('estEfetivoBase').textContent = `Base de dados: ${d}/${m}/${y}`;
-  document.getElementById('estEfetivoFonte').style.display = efetivoData.fonte === 'exemplo' ? '' : 'none';
+  document.getElementById('estEfetivoFonte').style.display = 'none';
 
   const ativos = efMsUn.ativo() || efMsSit.ativo() || Object.keys(efDatas).some(k => efDataVal(k));
   document.getElementById('efFiltroInfo').textContent = ativos
