@@ -544,6 +544,7 @@
           <p class="page-sub">Controle e acompanhamento do quantitativo de funcionários. Use os filtros para extrair a visão que precisar.</p>
         </div>
         <div class="est-tools">
+          <button id="btnEfSync" class="primary" title="Pede ao sistema para buscar agora os dados no RM">Sincronizar</button>
           <button id="btnEstEfetivoCsv" title="Baixar a tabela em CSV">Baixar CSV</button>
         </div>
       </div>
@@ -551,8 +552,9 @@
         <span class="est-chip" id="estEfetivoBase">Base de dados: —</span>
         <span class="est-chip" id="estEfetivoFonte" style="background:var(--warn-bg); color:var(--warn);">Aguardando a primeira carga</span>
       </div>
+      <p class="est-sub" id="efSyncStatus" style="margin:-6px 0 14px;"></p>
 
-      <div id="efVazio" class="est-state" style="display:none;"><b>Ainda não há dados de efetivo.</b><br>Assim que a consulta SLIGA.0008 do RM fizer a primeira carga, o painel mostra aqui os funcionários por unidade e por situação.</div>
+      <div id="efVazio" class="est-state" style="display:none;"></div>
       <div id="efConteudo">
       <div class="card" style="margin-bottom:16px;">
         <div class="est-tools" style="flex-wrap:wrap; gap:10px 14px; align-items:flex-end;">
@@ -627,9 +629,11 @@
             </div>
           </div>
           <button id="btnEstFolhaReload" title="Buscar os dados novamente">Atualizar</button>
+          <button id="btnEstFolhaSync" class="primary" title="Pede ao sistema para buscar agora os dados no RM">Sincronizar com o RM</button>
         </div>
       </div>
       <div style="margin:-6px 0 16px;"><span class="est-chip" id="estFolhaUpdated">Atualização: —</span></div>
+      <p class="est-sub" id="estFolhaSyncStatus" style="margin:-6px 0 14px;"></p>
 
       <div id="estFolhaState" class="est-state"></div>
 
@@ -1313,8 +1317,8 @@ function goToPage(pageName){
   if(pageName === 'est-executivo') renderEstExecutivo();
   if(pageName === 'est-contratos') renderEstContratos();
   if(pageName === 'est-qualidade') renderEstQualidade();
-  if(pageName === 'est-folha') renderEstFolha();
-  if(pageName === 'est-efetivo') renderEstEfetivo();
+  if(pageName === 'est-folha'){ renderEstFolha(); syncMostrarUltimo('folha'); }
+  if(pageName === 'est-efetivo') abrirEstEfetivo();
   if(pageName === 'estrategicos') estUpdateHub();
   if(pageName.startsWith('est')) window.scrollTo(0, 0);
 }
@@ -2123,21 +2127,84 @@ function exportEstFolhaCsv(){
 }
 
 
+/* ===================== SINCRONIZAR COM O RM (pedido manual) ===================== */
+// O botão cria um pedido na fila (sync_pedidos). O worker do RM (Railway) roda a cada 5 min, atende o pedido e grava o resultado.
+let syncIntervaloMs = 8000;
+const syncTimers = {};
+const syncIds = {efetivo: {st: 'efSyncStatus', btn: 'btnEfSync'}, folha: {st: 'estFolhaSyncStatus', btn: 'btnEstFolhaSync'}};
+const syncHora = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'}); };
+function syncPinta(alvo, p){
+  const el = document.getElementById(syncIds[alvo].st), btn = document.getElementById(syncIds[alvo].btn); if(!el) return;
+  const msg = p.mensagem || '';
+  let txt = '', cor = '';
+  if(p.status === 'pendente') txt = `Sincronização pedida em ${syncHora(p.solicitado_em)}. Aguardando o RM (a busca roda em até 5 minutos)…`;
+  else if(p.status === 'executando') txt = 'Sincronizando com o RM agora…';
+  else if(p.status === 'concluido') txt = /^MODO TESTE/.test(msg) ? `Sincronização de ${syncHora(p.concluido_em)} rodou em MODO TESTE: o RM respondeu, mas nada foi gravado (DRY_RUN ligado no Railway).` : `Última sincronização: ${syncHora(p.concluido_em)}. ${msg}`;
+  else { txt = `A sincronização de ${syncHora(p.concluido_em || p.solicitado_em)} falhou: ${msg}`; cor = 'var(--danger)'; }
+  el.textContent = txt; el.style.color = cor;
+  if(btn) btn.disabled = p.status === 'pendente' || p.status === 'executando';
+}
+function syncAcompanhar(alvo, id){
+  clearInterval(syncTimers[alvo]); let n = 0;
+  syncTimers[alvo] = setInterval(async () => {
+    n++;
+    let p = null; try{ const r = await sb.from('sync_pedidos').select('*').eq('id', id).limit(1); p = r.data && r.data[0]; }catch(_){}
+    if(p) syncPinta(alvo, p);
+    const fim = p && (p.status === 'concluido' || p.status === 'erro');
+    if(fim || n > 100){
+      clearInterval(syncTimers[alvo]);
+      const btn = document.getElementById(syncIds[alvo].btn); if(btn) btn.disabled = false;
+      if(fim && p.status === 'concluido' && !/^MODO TESTE/.test(p.mensagem || '')){
+        if(alvo === 'efetivo') loadEfetivo(true).then(renderEstEfetivo); else { estFolhaState('Carregando dados da folha...'); loadFolha(true).then(estFolhaPaint); }
+      }
+    }
+  }, syncIntervaloMs);
+}
+async function syncMostrarUltimo(alvo){
+  try{
+    const r = await sb.from('sync_pedidos').select('*').in('alvo', [alvo, 'todos']).order('id', {ascending: false}).limit(1);
+    const p = r.data && r.data[0]; if(!p) return;
+    syncPinta(alvo, p); if(p.status === 'pendente' || p.status === 'executando') syncAcompanhar(alvo, p.id);
+  }catch(_){}
+}
+async function syncSolicitar(alvo){
+  const el = document.getElementById(syncIds[alvo].st), btn = document.getElementById(syncIds[alvo].btn);
+  btn.disabled = true; el.style.color = ''; el.textContent = 'Enviando o pedido…';
+  try{
+    const r = await sb.rpc('sync_solicitar', {p_alvo: alvo}); if(r.error) throw r.error;
+    syncPinta(alvo, r.data); syncAcompanhar(alvo, r.data.id);
+  }catch(e){ el.style.color = 'var(--danger)'; el.textContent = 'Não foi possível pedir a sincronização: ' + String((e && (e.message || e.code)) || e); btn.disabled = false; }
+}
+document.getElementById('btnEfSync').addEventListener('click', () => syncSolicitar('efetivo'));
+document.getElementById('btnEstFolhaSync').addEventListener('click', () => syncSolicitar('folha'));
+
 /* ===================== EFETIVO (painel gerencial) ===================== */
 const EFETIVO_SITUACOES = [
   {cod:'A', nome:'Ativos', cor:'#EE6809'},
   {cod:'Z', nome:'Admissão do próximo mês', cor:'#2F80ED'},
   {cod:'F', nome:'Férias', cor:'#2A9D8F'},
   {cod:'V', nome:'Aviso prévio', cor:'#7B5EA7'},
+  {cod:'D', nome:'Demitidos', cor:'#6B7280'},
 ];
 const EFETIVO_OUTRA = {cod:'?', nome:'Outras situações', cor:'#9CA3AF'};
 const efSitInfo = cod => EFETIVO_SITUACOES.find(s => s.cod === cod) || {cod, nome: 'Situação ' + cod, cor: EFETIVO_OUTRA.cor};
 
-// Quando a carga do RM (SLIGA.0008) estiver ligada, esta função passa a ler do Supabase.
-// Formato esperado: {dataBase:'AAAA-MM-DD', fonte:'rm', rows:[{chapa, codigo_origem, nome, situacao, admissao, demissao}]}
-// Enquanto não houver carga, o painel mostra um aviso em vez de números.
-function efetivoCarregar(){
-  return {dataBase: null, fonte: 'vazio', rows: []};
+// Lê o painel pelo Supabase (função efetivo_painel: exige o módulo Efetivo e não devolve chapa nem nome de pessoa).
+let efetivoErro = null, efetivoCarregando = false, efetivoPadraoAplicado = false;
+async function loadEfetivo(force){
+  if(!force && efetivoData && efetivoData.rows.length) return;
+  efetivoCarregando = true; efetivoErro = null;
+  try{
+    const r = await sb.rpc('efetivo_painel'); if(r.error) throw r.error;
+    efetivoData = {dataBase: r.data.data_base, atualizadoEm: r.data.atualizado_em, fonte: 'rm', rows: r.data.rows || []};
+    efetivoPadraoAplicado = false;
+  }catch(e){ efetivoErro = String((e && (e.message || e.code)) || e); }
+  efetivoCarregando = false;
+}
+function abrirEstEfetivo(){
+  efetivoCarregando = true; renderEstEfetivo();
+  loadEfetivo(false).then(renderEstEfetivo);
+  syncMostrarUltimo('efetivo');
 }
 
 // Soma a partir das linhas (um colaborador por linha). Os totais nascem aqui: nada fica gravado em duplicidade.
@@ -2173,6 +2240,8 @@ function efMultiSelect(host, o){
   const api = {
     ok: k => st.sel.size === 0 || st.sel.has(k),
     ativo: () => st.sel.size > 0,
+    chaves: () => [...st.sel],
+    setSel(ks){ st.sel = new Set(ks); st.escolha = ks.length > 0; },
     limpar: () => { st.sel.clear(); st.escolha = false; },
     resumo: () => st.sel.size ? (st.sel.size === 1 ? st.nomes.get([...st.sel][0]) : st.sel.size + ' ' + o.plural) : '',
     set(chaves, nomes){
@@ -2228,7 +2297,7 @@ function efetivoPrepararFiltros(){
     Object.values(efDatas).forEach(i => document.getElementById(i).addEventListener('change', go));
     document.getElementById('efLimpar').addEventListener('click', () => {
       efMsUn.limpar(); efMsSit.limpar(); Object.values(efDatas).forEach(i => { document.getElementById(i).value = ''; });
-      document.getElementById('efBusca').value = ''; go();
+      document.getElementById('efBusca').value = ''; efetivoPadraoAplicado = false; go();
     });
   }
   const un = new Map(); efetivoData.rows.forEach(r => un.set(r.codigo_origem, r.nome));
@@ -2237,28 +2306,40 @@ function efetivoPrepararFiltros(){
   const ordem = c => { const i = EFETIVO_SITUACOES.findIndex(s => s.cod === c); return i < 0 ? 99 : i; };
   sits.sort((a, b) => ordem(a) - ordem(b) || a.localeCompare(b));
   efMsSit.set(sits, new Map(sits.map(c => [c, `${c} – ${efSitInfo(c).nome}`])));
+  // por padrão os demitidos (D) ficam fora do total; dá para incluí-los marcando D em Situação
+  if(!efetivoPadraoAplicado){ efetivoPadraoAplicado = true; if(sits.includes('D')) efMsSit.setSel(sits.filter(c => c !== 'D')); efMsSit.set(sits, new Map(sits.map(c => [c, `${c} – ${efSitInfo(c).nome}`]))); }
 }
 
 function renderEstEfetivo(){
-  if(!efetivoData) efetivoData = efetivoCarregar();
+  if(!efetivoData) efetivoData = {dataBase: null, rows: []};
   const vazio = !efetivoData.rows.length;
-  document.getElementById('efVazio').style.display = vazio ? '' : 'none';
+  const estado = efetivoErro ? `<b>Não foi possível carregar o efetivo.</b><br>${estEsc(efetivoErro)}<br>Verifique se o seu perfil tem acesso ao módulo Efetivo.`
+    : efetivoCarregando ? 'Carregando dados do efetivo...'
+    : '<b>Ainda não há dados de efetivo.</b><br>Clique em <b>Sincronizar</b> para buscar no RM agora, ou aguarde a carga automática diária (SLIGA.0008).';
+  const vz = document.getElementById('efVazio'); vz.innerHTML = estado;
+  vz.style.display = vazio ? '' : 'none';
   document.getElementById('efConteudo').style.display = vazio ? 'none' : '';
-  document.getElementById('estEfetivoFonte').style.display = vazio ? '' : 'none';
+  const chip = document.getElementById('estEfetivoFonte');
+  chip.style.display = vazio && !efetivoCarregando ? '' : 'none';
   document.getElementById('estEfetivoBase').textContent = 'Base de dados: —';
   if(vazio){ efetivoView = null; ['efTop', 'efSit'].forEach(k => { if(chartInstances[k]){ chartInstances[k].destroy(); delete chartInstances[k]; } }); return; }
   efetivoPrepararFiltros();
   const filtradas = efetivoLinhasFiltradas();
   efetivoView = efetivoBuildView(filtradas);
   const v = efetivoView;
-  const [y, m, d] = efetivoData.dataBase.split('-');
-  document.getElementById('estEfetivoBase').textContent = `Base de dados: ${d}/${m}/${y}`;
-  document.getElementById('estEfetivoFonte').style.display = 'none';
 
-  const ativos = efMsUn.ativo() || efMsSit.ativo() || Object.keys(efDatas).some(k => efDataVal(k));
-  document.getElementById('efFiltroInfo').textContent = ativos
-    ? `Filtros ativos: mostrando ${fmtInt(v.total)} de ${fmtInt(efetivoData.rows.length)} funcionários.` : '';
+  const sitsTodas = [...new Set(efetivoData.rows.map(r => r.situacao))];
+  const defSit = sitsTodas.filter(c => c !== 'D');
+  const mesmo = (a, b) => a.length === b.length && a.every(x => b.includes(x));
+  const sitCustom = efMsSit.ativo() ? !mesmo(efMsSit.chaves(), defSit) : defSit.length !== sitsTodas.length;
+  const ativos = efMsUn.ativo() || sitCustom || Object.keys(efDatas).some(k => efDataVal(k));
+  const demFora = sitsTodas.includes('D') && !efMsSit.ok('D');
+  const partes = [];
+  if(ativos) partes.push(`Filtros ativos: mostrando ${fmtInt(v.total)} de ${fmtInt(efetivoData.rows.length)} funcionários (a base inclui demitidos).`);
+  if(demFora) partes.push('Demitidos (D) ficam fora do total. Para incluí-los, marque D em Situação.');
+  document.getElementById('efFiltroInfo').textContent = partes.join(' ');
   document.getElementById('efLimpar').style.display = ativos ? '' : 'none';
+  if(efetivoData.dataBase){ const [yy, mm, dd] = efetivoData.dataBase.split('-'); document.getElementById('estEfetivoBase').textContent = `Base de dados: ${dd}/${mm}/${yy}` + (efetivoData.atualizadoEm ? ` · carga de ${syncHora(efetivoData.atualizadoEm)}` : ''); }
 
   document.getElementById('efTotal').textContent = fmtInt(v.total);
   document.getElementById('efUnidades').textContent = fmtInt(v.nUnidades);
