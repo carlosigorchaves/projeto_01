@@ -158,14 +158,14 @@
 
   @media(max-width:900px){
     .kpi-row{grid-template-columns:repeat(2,1fr);}
+    html,body{overflow-x:hidden;}
     .shell{flex-direction:column;}
-    .sidebar{width:100%; flex-direction:row; overflow-x:auto; padding:10px;}
-    .brand{display:none;}
-    .sidebar-open,.shell.collapsed .sidebar-open{display:none;}
-    .shell.collapsed .sidebar{display:flex;}
-    .shell.collapsed .main{padding-left:32px;}
-    .nav-item{border-left:none; border-bottom:3px solid transparent; white-space:nowrap;}
-    .nav-item.active{border-bottom-color:#5AA0DA;}
+    /* celular: o menu vira uma gaveta (botão ☰ abre, toque fora ou num item fecha) */
+    .sidebar{position:fixed; top:0; left:0; bottom:0; width:min(280px,85vw); z-index:50; overflow-y:auto; box-shadow:0 0 0 100vmax rgba(0,0,0,.45);}
+    .shell.collapsed .sidebar{display:none;}
+    .sidebar-open,.shell.collapsed .sidebar-open{top:10px; left:10px;}
+    .shell:not(.collapsed) .sidebar-open{display:none;}
+    .main,.shell.collapsed .main{padding:60px 16px 24px; max-width:100%;}
   }
 
   /* ===== Dashboards Estratégicos ===== */
@@ -3611,10 +3611,15 @@ async function doLogin(){
     // gráficos se ajustam à nova largura
     setTimeout(() => window.dispatchEvent(new Event('resize')), 220);
   };
+  const celular = () => window.innerWidth <= 900;
   let inicial = window.innerWidth < 1280;
   try{ const v = localStorage.getItem(KEY); if(v === '1') inicial = true; else if(v === '0') inicial = false; }catch(_){}
+  if(celular()) inicial = true;   // no celular o menu começa fechado
   set(inicial, false);
   document.getElementById('btnSidebarToggle').addEventListener('click', () => set(true, true));
+  // celular: ao escolher um item ou tocar fora do menu, a gaveta fecha
+  document.querySelectorAll('.nav-item').forEach(i => i.addEventListener('click', () => { if(celular()) set(true, false); }));
+  document.querySelector('.main').addEventListener('click', () => { if(celular() && !shell.classList.contains('collapsed')) set(true, false); });
   document.getElementById('btnSidebarOpen').addEventListener('click', () => set(false, true));
 })();
 
