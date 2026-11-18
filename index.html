@@ -254,6 +254,13 @@
 .ef-f{display:flex; flex-direction:column; gap:4px; min-width:0;}
 .ef-f label{font-size:12px; color:var(--muted,#6b7280); font-weight:600;}
 .ef-f input[type=date]{padding:7px 9px; border:1px solid var(--border,#e5e7eb); border-radius:8px; font:inherit; background:#fff;}
+
+.pw-wrap{position:relative; display:block;}
+.pw-wrap input{padding-right:42px !important;}
+.pw-eye{position:absolute; right:6px; top:0; bottom:0; margin:auto 0; height:32px; width:32px; padding:0; display:grid; place-items:center; background:transparent; border:0; border-radius:6px; color:#6b7280; cursor:pointer;}
+.pw-eye:hover{color:var(--brand-dark,#C2570B); background:rgba(0,0,0,.05);}
+.login-card .pw-wrap{margin-bottom:12px;}
+.login-card .pw-wrap input{margin-bottom:0;}
 </style>
 </head>
 <body>
@@ -3628,6 +3635,24 @@ async function doLogin(){
   document.querySelectorAll('.nav-item').forEach(i => i.addEventListener('click', () => { if(celular()) set(true, false); }));
   document.querySelector('.main').addEventListener('click', () => { if(celular() && !shell.classList.contains('collapsed')) set(true, false); });
   document.getElementById('btnSidebarOpen').addEventListener('click', () => set(false, true));
+})();
+
+/* ===== olhinho para ver/ocultar a senha ===== */
+(function(){
+  const ABERTO = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const FECHADO = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.9 17.9A10.9 10.9 0 0 1 12 19C5 19 1 12 1 12a18.6 18.6 0 0 1 5.1-5.9M9.9 4.2A10.4 10.4 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2M1 1l22 22"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/></svg>';
+  window.addPasswordEye = function(input){
+    if(!input || input.parentNode.classList.contains('pw-wrap')) return;
+    const wrap = document.createElement('div'); wrap.className = 'pw-wrap';
+    if(input.style.flex){ wrap.style.flex = input.style.flex; input.style.flex = ''; }
+    input.parentNode.insertBefore(wrap, input); wrap.appendChild(input);
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'pw-eye';
+    const set = show => { input.type = show ? 'text' : 'password'; b.innerHTML = show ? FECHADO : ABERTO; b.title = b.ariaLabel = show ? 'Ocultar senha' : 'Mostrar senha'; b.setAttribute('aria-pressed', String(show)); };
+    b.addEventListener('click', () => { set(input.type === 'password'); input.focus(); });
+    set(false); wrap.appendChild(b);
+  };
+  addPasswordEye(document.getElementById('loginPassword'));
+  addPasswordEye(document.getElementById('newUserPassword'));
 })();
 
 document.getElementById('btnLogin').addEventListener('click', doLogin);
