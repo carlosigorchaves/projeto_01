@@ -1286,6 +1286,7 @@ function statusClass(pct){ if(pct < 0.7) return 'ok'; if(pct <= 1.0) return 'war
 /* ===================== NAV ===================== */
 function goToPage(pageName){
   // subtelas dos Dashboards Estratégicos (est-*) mantêm o item do menu "estrategicos" ativo
+  if(['est-executivo','est-contratos','est-qualidade'].includes(pageName) && !hasAccess('painel','view')) return;
   if(pageName === 'est-folha' && !hasAccess('folha','view')) return; // módulo não liberado no perfil
   if(pageName === 'est-efetivo' && !hasAccess('efetivo','view')) return;
   const navKey = pageName.startsWith('est-') ? 'estrategicos' : pageName;
@@ -1318,7 +1319,7 @@ function applyNavPermissions(){
   const navMap = {
     dashboard: hasAccess('painel', 'view'),
     'dashboard-competencia': hasAccess('painel', 'view'),
-    estrategicos: hasAccess('painel', 'view'),
+    estrategicos: hasAccess('painel', 'view') || hasAccess('folha', 'view') || hasAccess('efetivo', 'view'),
     lancamentos: hasAccess('lancamentos', 'view'),
     contratos: hasAccess('contratos', 'view'),
     config: hasAccess('usuarios', 'view') || hasAccess('config', 'view'),
@@ -2346,6 +2347,12 @@ function estUpdateHub(){
   card.classList.toggle('disabled', !ok);
   document.getElementById('estFolhaBadge').style.display = ok ? 'none' : '';
   card.querySelector('.est-card-cta').textContent = ok ? 'Abrir painel →' : 'Sem acesso';
+  const okPainel = hasAccess('painel', 'view');
+  ['est-executivo', 'est-contratos', 'est-qualidade'].forEach(pg => {
+    const c = document.querySelector(`.est-card[data-est-go="${pg}"]`); if(!c) return;
+    c.classList.toggle('disabled', !okPainel);
+    c.querySelector('.est-card-cta').textContent = okPainel ? 'Abrir painel →' : 'Sem acesso';
+  });
   const ef = document.getElementById('estEfetivoCard');
   if(ef){
     const okEf = hasAccess('efetivo', 'view');
