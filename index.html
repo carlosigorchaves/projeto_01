@@ -250,6 +250,10 @@
     .est-strips{grid-template-columns:1fr;}
     .est-barrow{grid-template-columns:110px 1fr 100px;}
   }
+
+.ef-f{display:flex; flex-direction:column; gap:4px; min-width:0;}
+.ef-f label{font-size:12px; color:var(--muted,#6b7280); font-weight:600;}
+.ef-f input[type=date]{padding:7px 9px; border:1px solid var(--border,#e5e7eb); border-radius:8px; font:inherit; background:#fff;}
 </style>
 </head>
 <body>
@@ -532,7 +536,7 @@
       <div class="est-head">
         <div>
           <h2 class="page-title">Painel Gerencial — Efetivo</h2>
-          <p class="page-sub">Controle e acompanhamento do quantitativo de funcionários.</p>
+          <p class="page-sub">Controle e acompanhamento do quantitativo de funcionários. Use os filtros para extrair a visão que precisar.</p>
         </div>
         <div class="est-tools">
           <button id="btnEstEfetivoCsv" title="Baixar a tabela em CSV">Baixar CSV</button>
@@ -541,6 +545,19 @@
       <div style="margin:-6px 0 16px; display:flex; gap:8px; flex-wrap:wrap;">
         <span class="est-chip" id="estEfetivoBase">Base de dados: —</span>
         <span class="est-chip" id="estEfetivoFonte" style="background:var(--warn-bg); color:var(--warn);">Dados de exemplo</span>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="est-tools" style="flex-wrap:wrap; gap:10px 14px; align-items:flex-end;">
+          <div class="ef-f"><label>Unidades</label><div class="ms" id="efMsUn"></div></div>
+          <div class="ef-f"><label>Situação</label><div class="ms" id="efMsSit"></div></div>
+          <div class="ef-f"><label for="efAdmDe">Admitidos de</label><input type="date" id="efAdmDe"></div>
+          <div class="ef-f"><label for="efAdmAte">até</label><input type="date" id="efAdmAte"></div>
+          <div class="ef-f"><label for="efDemDe">Desligamento de</label><input type="date" id="efDemDe"></div>
+          <div class="ef-f"><label for="efDemAte">até</label><input type="date" id="efDemAte"></div>
+          <button type="button" id="efLimpar" title="Voltar a mostrar todo o efetivo">Limpar filtros</button>
+        </div>
+        <p class="est-sub" id="efFiltroInfo" style="margin:10px 0 0;"></p>
       </div>
 
       <div class="kpi-row" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
@@ -562,12 +579,12 @@
       </div>
 
       <div class="card" style="padding:0;">
-        <div style="padding:18px 20px 4px;"><p class="card-title">Detalhamento por unidade</p><p class="est-sub">Funcionários por situação em cada unidade</p></div>
+        <div style="padding:18px 20px 4px;"><p class="card-title">Detalhamento por unidade</p><p class="est-sub">Funcionários por situação em cada unidade, respeitando os filtros acima</p></div>
         <div class="est-tools" style="padding:10px 20px 0; margin-bottom:10px;">
           <input type="text" id="efBusca" placeholder="Buscar unidade..." style="min-width:220px; flex:1;">
         </div>
         <div class="est-scroll"><table class="est-table">
-          <thead><tr><th>Unidade</th><th>Funcionários</th><th>A · Ativos</th><th>Z · Admissão próx. mês</th><th>F · Férias</th><th>V · Aviso prévio</th><th>% do efetivo</th></tr></thead>
+          <thead><tr><th>Unidade</th><th>Funcionários</th><th>A · Ativos</th><th>Z · Admissão próx. mês</th><th>F · Férias</th><th>V · Aviso prévio</th><th>Outras</th><th>% do efetivo</th></tr></thead>
           <tbody id="efBody"></tbody>
         </table></div>
       </div>
@@ -2104,9 +2121,11 @@ const EFETIVO_SITUACOES = [
   {cod:'F', nome:'Férias', cor:'#2A9D8F'},
   {cod:'V', nome:'Aviso prévio', cor:'#7B5EA7'},
 ];
+const EFETIVO_OUTRA = {cod:'?', nome:'Outras situações', cor:'#9CA3AF'};
+const efSitInfo = cod => EFETIVO_SITUACOES.find(s => s.cod === cod) || {cod, nome: 'Situação ' + cod, cor: EFETIVO_OUTRA.cor};
 
-// Dados de exemplo no mesmo formato da futura tabela: uma linha por unidade e situação.
-// Quando a carga do RM estiver pronta, só esta função muda (passa a ler do Supabase).
+// Dados de exemplo no mesmo formato da futura carga do RM: UMA LINHA POR COLABORADOR (sem nome nem CPF).
+// Quando a SLIGA.0008 estiver ligada, só esta função muda (passa a ler do Supabase).
 function efetivoExemplo(){
   const topo = [['Hospital Geral de Eunápolis',374],['Hospital Central do Exército',340],['Fiocruz',225],['HMMQ',102],['ISSL BR CT Imagem',83],
     ['Comando da Aeronáutica (Limpeza)',80],['CETHID',65],['Hospital Geral do Exército',56],['Rioprevidência LT I',33],['Comando da Aeronáutica (Gestoria)',29]];
@@ -2115,7 +2134,6 @@ function efetivoExemplo(){
     .map(([nome, qtd], i) => ({codigo: '01.' + String(i + 1).padStart(3, '0'), nome, qtd}));
   const total = unidades.reduce((s, u) => s + u.qtd, 0);
   const alvo = {Z: 29, F: 34, V: 27};
-  // reparte Z, F e V entre as unidades (maiores restos) e deixa o resto como Ativos
   const aloc = {Z: {}, F: {}, V: {}};
   Object.keys(alvo).forEach((cod, k) => {
     const cotas = unidades.map((u, i) => { const x = u.qtd * alvo[cod] / total; return {i, base: Math.floor(x), resto: x - Math.floor(x) + ((i + k * 7) % 5) * 1e-6}; });
@@ -2123,20 +2141,33 @@ function efetivoExemplo(){
     cotas.slice().sort((a, b) => b.resto - a.resto).forEach(c => { if(falta > 0){ c.base++; falta--; } });
     cotas.forEach(c => { aloc[cod][c.i] = c.base; });
   });
-  const rows = [];
+  // gerador pseudo-aleatório fixo: o exemplo é sempre o mesmo
+  let seed = 20261112; const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  const iso = d => d.toISOString().slice(0, 10);
+  const dia = (ini, fim) => iso(new Date(Date.UTC(ini[0], ini[1] - 1, ini[2]) + Math.floor(rnd() * (Date.UTC(fim[0], fim[1] - 1, fim[2]) - Date.UTC(ini[0], ini[1] - 1, ini[2])))));
+  const rows = []; let n = 0;
   unidades.forEach((u, i) => {
-    const z = aloc.Z[i], f = aloc.F[i], v = aloc.V[i];
-    [['A', u.qtd - z - f - v], ['Z', z], ['F', f], ['V', v]].forEach(([sit, qtd]) => { if(qtd > 0) rows.push({codigo_origem: u.codigo, nome: u.nome, situacao: sit, qtd}); });
+    [['A', u.qtd - aloc.Z[i] - aloc.F[i] - aloc.V[i]], ['Z', aloc.Z[i]], ['F', aloc.F[i]], ['V', aloc.V[i]]].forEach(([sit, qtd]) => {
+      for(let k = 0; k < qtd; k++){
+        let adm, dem = null;
+        if(sit === 'Z') adm = '2026-12-01';
+        else { adm = dia([2018, 1, 1], [2026, 11, 10]); if(sit === 'V') dem = dia([2026, 11, 13], [2026, 12, 20]); }
+        rows.push({chapa: String(++n).padStart(6, '0'), codigo_origem: u.codigo, nome: u.nome, situacao: sit, admissao: adm, demissao: dem});
+      }
+    });
   });
   return {dataBase: '2026-11-12', fonte: 'exemplo', rows};
 }
 
-// Soma tudo a partir das linhas (unidade x situação). É aqui que os totais nascem: nada fica gravado em duplicidade.
+// Soma a partir das linhas (um colaborador por linha). Os totais nascem aqui: nada fica gravado em duplicidade.
 function efetivoBuildView(rows){
-  const por = new Map(); const sit = {A: 0, Z: 0, F: 0, V: 0};
+  const por = new Map(); const sit = {};
   rows.forEach(r => {
-    if(!por.has(r.codigo_origem)) por.set(r.codigo_origem, {codigo: r.codigo_origem, nome: r.nome, total: 0, A: 0, Z: 0, F: 0, V: 0});
-    const u = por.get(r.codigo_origem); u.total += r.qtd; u[r.situacao] = (u[r.situacao] || 0) + r.qtd; sit[r.situacao] = (sit[r.situacao] || 0) + r.qtd;
+    const q = r.qtd == null ? 1 : r.qtd;
+    if(!por.has(r.codigo_origem)) por.set(r.codigo_origem, {codigo: r.codigo_origem, nome: r.nome, total: 0, A: 0, Z: 0, F: 0, V: 0, outras: 0});
+    const u = por.get(r.codigo_origem); u.total += q;
+    if(u[r.situacao] !== undefined && r.situacao !== 'outras') u[r.situacao] += q; else u.outras += q;
+    sit[r.situacao] = (sit[r.situacao] || 0) + q;
   });
   const unidades = [...por.values()].sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, 'pt-BR'));
   const total = unidades.reduce((s, u) => s + u.total, 0);
@@ -2146,19 +2177,107 @@ function efetivoBuildView(rows){
 let efetivoData = null, efetivoView = null;
 const fmtInt = n => (n || 0).toLocaleString('pt-BR');
 
+/* ---- filtros ---- */
+// Seleção múltipla genérica (vazio = todos). 'Desmarcar todos' deixa as caixas vazias para escolher só algumas.
+function efMultiSelect(host, o){
+  const st = {sel: new Set(), escolha: false, chaves: [], nomes: new Map()};
+  const id = host.id;
+  host.innerHTML = `<button type="button" class="ms-btn" aria-haspopup="true" aria-expanded="false"></button>
+    <div class="ms-panel" style="display:none;">
+      <input type="search" placeholder="Buscar..." aria-label="Buscar ${o.rotulo}">
+      <div class="ms-actions"><button type="button" data-a="todos">Marcar todos</button> <button type="button" data-a="nenhum">Desmarcar todos</button></div>
+      <div class="ms-list"></div>
+    </div>`;
+  const btn = host.querySelector('.ms-btn'), panel = host.querySelector('.ms-panel'), busca = host.querySelector('input'), list = host.querySelector('.ms-list');
+  const api = {
+    ok: k => st.sel.size === 0 || st.sel.has(k),
+    ativo: () => st.sel.size > 0,
+    limpar: () => { st.sel.clear(); st.escolha = false; },
+    resumo: () => st.sel.size ? (st.sel.size === 1 ? st.nomes.get([...st.sel][0]) : st.sel.size + ' ' + o.plural) : '',
+    set(chaves, nomes){
+      st.chaves = chaves; st.nomes = nomes;
+      [...st.sel].forEach(k => { if(!nomes.has(k)) st.sel.delete(k); });
+      if(st.sel.size === chaves.length){ st.sel.clear(); st.escolha = false; }
+      api.render();
+    },
+    render(){
+      const n = st.sel.size;
+      btn.textContent = (n === 0 ? (st.escolha ? o.escolha : o.todos) : n === 1 ? st.nomes.get([...st.sel][0]) : n + ' ' + o.plural + ' selecionad' + o.gen) + ' ▾';
+      const q = (busca.value || '').toLowerCase().trim();
+      list.innerHTML = st.chaves.filter(k => !q || st.nomes.get(k).toLowerCase().includes(q)).map(k =>
+        `<label><input type="checkbox" data-k="${estEsc(k)}" ${(n === 0 && !st.escolha) || st.sel.has(k) ? 'checked' : ''}> <span>${estEsc(st.nomes.get(k))}</span></label>`).join('') || '<div class="est-sub">Nada encontrado.</div>';
+    },
+  };
+  const fechar = () => { panel.style.display = 'none'; btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', e => { e.stopPropagation(); const abrir = panel.style.display === 'none'; panel.style.display = abrir ? '' : 'none'; btn.setAttribute('aria-expanded', String(abrir)); });
+  document.addEventListener('click', e => { if(!host.contains(e.target)) fechar(); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') fechar(); });
+  busca.addEventListener('input', api.render);
+  list.addEventListener('change', e => {
+    const k = e.target.dataset && e.target.dataset.k; if(k === undefined) return;
+    if(st.sel.size === 0 && !st.escolha) st.chaves.forEach(c => st.sel.add(c));
+    if(st.sel.has(k)) st.sel.delete(k); else st.sel.add(k);
+    st.escolha = true;
+    if(st.sel.size === st.chaves.length){ st.sel.clear(); st.escolha = false; }
+    o.onChange();
+  });
+  host.querySelector('[data-a=todos]').addEventListener('click', () => { api.limpar(); o.onChange(); });
+  host.querySelector('[data-a=nenhum]').addEventListener('click', () => { st.sel.clear(); st.escolha = true; o.onChange(); });
+  return api;
+}
+
+let efMsUn = null, efMsSit = null;
+const efDatas = {admDe: 'efAdmDe', admAte: 'efAdmAte', demDe: 'efDemDe', demAte: 'efDemAte'};
+const efDataVal = k => document.getElementById(efDatas[k]).value || '';
+
+function efetivoLinhasFiltradas(){
+  const aDe = efDataVal('admDe'), aAte = efDataVal('admAte'), dDe = efDataVal('demDe'), dAte = efDataVal('demAte');
+  return efetivoData.rows.filter(r => {
+    if(!efMsUn.ok(r.codigo_origem) || !efMsSit.ok(r.situacao)) return false;
+    if(aDe || aAte){ if(!r.admissao || (aDe && r.admissao < aDe) || (aAte && r.admissao > aAte)) return false; }
+    if(dDe || dAte){ if(!r.demissao || (dDe && r.demissao < dDe) || (dAte && r.demissao > dAte)) return false; }
+    return true;
+  });
+}
+function efetivoPrepararFiltros(){
+  if(!efMsUn){
+    const go = () => renderEstEfetivo();
+    efMsUn = efMultiSelect(document.getElementById('efMsUn'), {rotulo: 'unidade', todos: 'Todas as unidades', escolha: 'Escolha as unidades', plural: 'unidades', gen: 'as', onChange: go});
+    efMsSit = efMultiSelect(document.getElementById('efMsSit'), {rotulo: 'situação', todos: 'Todas as situações', escolha: 'Escolha as situações', plural: 'situações', gen: 'as', onChange: go});
+    Object.values(efDatas).forEach(i => document.getElementById(i).addEventListener('change', go));
+    document.getElementById('efLimpar').addEventListener('click', () => {
+      efMsUn.limpar(); efMsSit.limpar(); Object.values(efDatas).forEach(i => { document.getElementById(i).value = ''; });
+      document.getElementById('efBusca').value = ''; go();
+    });
+  }
+  const un = new Map(); efetivoData.rows.forEach(r => un.set(r.codigo_origem, r.nome));
+  efMsUn.set([...un.keys()].sort((a, b) => un.get(a).localeCompare(un.get(b), 'pt-BR')), un);
+  const sits = [...new Set(efetivoData.rows.map(r => r.situacao))];
+  const ordem = c => { const i = EFETIVO_SITUACOES.findIndex(s => s.cod === c); return i < 0 ? 99 : i; };
+  sits.sort((a, b) => ordem(a) - ordem(b) || a.localeCompare(b));
+  efMsSit.set(sits, new Map(sits.map(c => [c, `${c} – ${efSitInfo(c).nome}`])));
+}
+
 function renderEstEfetivo(){
   if(!efetivoData) efetivoData = efetivoExemplo();
-  efetivoView = efetivoBuildView(efetivoData.rows);
+  efetivoPrepararFiltros();
+  const filtradas = efetivoLinhasFiltradas();
+  efetivoView = efetivoBuildView(filtradas);
   const v = efetivoView;
   const [y, m, d] = efetivoData.dataBase.split('-');
   document.getElementById('estEfetivoBase').textContent = `Base de dados: ${d}/${m}/${y}`;
-  const fonteEl = document.getElementById('estEfetivoFonte');
-  fonteEl.style.display = efetivoData.fonte === 'exemplo' ? '' : 'none';
+  document.getElementById('estEfetivoFonte').style.display = efetivoData.fonte === 'exemplo' ? '' : 'none';
+
+  const ativos = efMsUn.ativo() || efMsSit.ativo() || Object.keys(efDatas).some(k => efDataVal(k));
+  document.getElementById('efFiltroInfo').textContent = ativos
+    ? `Filtros ativos: mostrando ${fmtInt(v.total)} de ${fmtInt(efetivoData.rows.length)} funcionários.` : '';
+  document.getElementById('efLimpar').style.display = ativos ? '' : 'none';
+
   document.getElementById('efTotal').textContent = fmtInt(v.total);
   document.getElementById('efUnidades').textContent = fmtInt(v.nUnidades);
-  const atencao = v.total - v.sit.A;
+  const atencao = v.total - (v.sit.A || 0);
   document.getElementById('efAtencao').textContent = fmtInt(atencao);
-  document.getElementById('efAtencaoSub').textContent = v.total ? `${fmtPct(atencao / v.total)} do efetivo · férias, aviso prévio e admissões do próximo mês` : '';
+  document.getElementById('efAtencaoSub').textContent = v.total ? `${fmtPct(atencao / v.total)} do efetivo · tudo que não é situação Ativo` : '';
 
   // 10 maiores unidades (barras horizontais com o valor na ponta)
   const top = v.unidades.slice(0, 10);
@@ -2177,7 +2296,8 @@ function renderEstEfetivo(){
   });
 
   // composição por situação (rosca com o total no centro)
-  const slices = EFETIVO_SITUACOES.map(s => ({...s, value: v.sit[s.cod] || 0})).filter(s => s.value > 0);
+  const slices = Object.keys(v.sit).map(c => ({...efSitInfo(c), value: v.sit[c]})).filter(s => s.value > 0)
+    .sort((a, b) => { const o = c => { const i = EFETIVO_SITUACOES.findIndex(s => s.cod === c); return i < 0 ? 99 : i; }; return o(a.cod) - o(b.cod) || a.cod.localeCompare(b.cod); });
   if(chartInstances.efSit){ chartInstances.efSit.destroy(); delete chartInstances.efSit; }
   chartInstances.efSit = new Chart(document.getElementById('efSitChart'), {
     type: 'doughnut',
@@ -2190,10 +2310,9 @@ function renderEstEfetivo(){
       ctx.fillStyle = '#6b7280'; ctx.font = '12px sans-serif'; ctx.fillText('funcionários', cx, cy + 14); ctx.restore();
     }}]
   });
-  document.getElementById('efSitLegend').innerHTML = EFETIVO_SITUACOES.map(s => {
-    const q = v.sit[s.cod] || 0;
-    return `<div class="est-legend-row"><span class="est-swatch" style="background:${s.cor}"></span><span class="est-lname">${s.cod} – ${estEsc(s.nome)}</span><b>${fmtInt(q)} (${fmtPct(v.total ? q / v.total : 0)})</b></div>`;
-  }).join('');
+  document.getElementById('efSitLegend').innerHTML = slices.length ? slices.map(s =>
+    `<div class="est-legend-row"><span class="est-swatch" style="background:${s.cor}"></span><span class="est-lname">${estEsc(s.cod)} – ${estEsc(s.nome)}</span><b>${fmtInt(s.value)} (${fmtPct(v.total ? s.value / v.total : 0)})</b></div>`).join('')
+    : '<div class="est-sub">Nenhum funcionário com esses filtros.</div>';
 
   renderEfetivoTabela();
 }
@@ -2205,13 +2324,13 @@ function efetivoLinhasTabela(){
 function renderEfetivoTabela(){
   const rows = efetivoLinhasTabela(), tot = efetivoView ? efetivoView.total : 0;
   document.getElementById('efBody').innerHTML = rows.length ? rows.map(u => `<tr style="cursor:default;">
-      <td title="${estEsc(u.nome)}">${estEsc(u.nome)}</td><td><b>${fmtInt(u.total)}</b></td><td>${fmtInt(u.A)}</td><td>${fmtInt(u.Z)}</td><td>${fmtInt(u.F)}</td><td>${fmtInt(u.V)}</td><td>${fmtPct(tot ? u.total / tot : 0)}</td>
-    </tr>`).join('') : '<tr><td colspan="7" style="text-align:center; padding:28px; cursor:default;">Nenhuma unidade encontrada.</td></tr>';
+      <td title="${estEsc(u.nome)}">${estEsc(u.nome)}</td><td><b>${fmtInt(u.total)}</b></td><td>${fmtInt(u.A)}</td><td>${fmtInt(u.Z)}</td><td>${fmtInt(u.F)}</td><td>${fmtInt(u.V)}</td><td>${fmtInt(u.outras)}</td><td>${fmtPct(tot ? u.total / tot : 0)}</td>
+    </tr>`).join('') : '<tr><td colspan="8" style="text-align:center; padding:28px; cursor:default;">Nenhuma unidade encontrada.</td></tr>';
 }
 function exportEfetivoCsv(){
   if(!efetivoView) return;
-  const lines = [['UNIDADE','FUNCIONARIOS','ATIVOS','ADMISSAO_PROX_MES','FERIAS','AVISO_PREVIO','PCT_EFETIVO'],
-    ...efetivoLinhasTabela().map(u => [u.nome, u.total, u.A, u.Z, u.F, u.V, (efetivoView.total ? u.total / efetivoView.total * 100 : 0).toFixed(1).replace('.', ',')])];
+  const lines = [['UNIDADE','FUNCIONARIOS','ATIVOS','ADMISSAO_PROX_MES','FERIAS','AVISO_PREVIO','OUTRAS','PCT_EFETIVO'],
+    ...efetivoLinhasTabela().map(u => [u.nome, u.total, u.A, u.Z, u.F, u.V, u.outras, (efetivoView.total ? u.total / efetivoView.total * 100 : 0).toFixed(1).replace('.', ',')])];
   const csv = '﻿' + lines.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n');
   const url = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
   const a = document.createElement('a'); a.href = url; a.download = `efetivo_${efetivoData.dataBase}.csv`; a.click(); URL.revokeObjectURL(url);
