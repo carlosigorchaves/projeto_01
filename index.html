@@ -191,6 +191,7 @@
   .est-strip.alert strong{color:var(--warn);}
   .est-grid-wide{display:grid; grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr); gap:20px;}
   .est-sub{font-size:11.5px; color:var(--text-3); margin:3px 0 0;}
+  .sync-discreto{font-size:10.5px; opacity:.65; cursor:help;}
   .est-empty{font-size:12.5px; color:var(--text-3); padding:18px 0; text-align:center;}
   .est-barrow{display:grid; grid-template-columns:170px 1fr 120px; align-items:center; gap:12px; padding:7px 0; cursor:pointer;}
   .est-barrow:hover .est-barname{color:var(--brand-dark);}
@@ -2139,9 +2140,13 @@ function syncPinta(alvo, p){
   let txt = '', cor = '';
   if(p.status === 'pendente') txt = `Sincronização pedida em ${syncHora(p.solicitado_em)}. Aguardando o RM (a busca roda em até 5 minutos)…`;
   else if(p.status === 'executando') txt = 'Sincronizando com o RM agora…';
-  else if(p.status === 'concluido') txt = /^MODO TESTE/.test(msg) ? `Sincronização de ${syncHora(p.concluido_em)} rodou em MODO TESTE: o RM respondeu, mas nada foi gravado (DRY_RUN ligado no Railway).` : `Última sincronização: ${syncHora(p.concluido_em)}. ${msg}`;
+  else if(p.status === 'concluido') txt = /^MODO TESTE/.test(msg) ? `Sincronização de ${syncHora(p.concluido_em)} rodou em MODO TESTE: o RM respondeu, mas nada foi gravado (DRY_RUN ligado no Railway).` : `Última sincronização: ${syncHora(p.concluido_em)}`;
   else { txt = `A sincronização de ${syncHora(p.concluido_em || p.solicitado_em)} falhou: ${msg}`; cor = 'var(--danger)'; }
   el.textContent = txt; el.style.color = cor;
+  // sucesso: só a data/hora, em tom discreto; o detalhe técnico fica no tooltip. Erros e avisos continuam bem visíveis.
+  const discreto = p.status === 'concluido' && !/^MODO TESTE/.test(msg);
+  if(discreto){ el.textContent = `Última sincronização: ${syncHora(p.concluido_em)}`; el.title = msg; } else el.removeAttribute('title');
+  el.classList.toggle('sync-discreto', discreto);
   if(btn) btn.disabled = p.status === 'pendente' || p.status === 'executando';
 }
 function syncAcompanhar(alvo, id){
